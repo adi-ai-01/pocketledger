@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# PocketLedger financial exports
+pocketledger-backup-*.json
+pocketledger-*.csv
+
+# Editor configurations
+.vscode/
+.idea/
+
+# Operating system files
+.DS_Store
+.DS_Store?
+Thumbs.db
+._*
+
+# Temporary editor files
+*.swp
+*.swo
+*~

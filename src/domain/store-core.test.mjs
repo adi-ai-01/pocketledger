@@ -6,6 +6,7 @@ import {
   BACKUP_STORAGE_KEY,
   defaultStateV1,
   defaultStateV2,
+  isValidUpiId,
 } from './store-core.js';
 import { EVENT_KINDS, PARTY_USER } from './ledger.js';
 
@@ -403,5 +404,307 @@ describe('StoreCore Integration & Migration Engine', () => {
     assert.equal(importRes.success, true);
     assert.equal(store2.isV2(), true);
     assert.equal(store2.computeBalances()['Dev'], 800);
+  });
+
+  // 14. Phase 4: Personal Expense (Self-Paid vs Covered by Counterparty)
+  test('14. Phase 4: Personal Expense workflows update spending and counterparties correctly', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Aarav');
+
+    // Case A: User-paid solo personal expense
+    const resA = store.addTransaction({
+      type: 'personal_expense',
+      amount: 450,
+      description: 'Groceries',
+      category: 'Food',
+      date: '2026-11-02',
+      paidBy: 'user',
+      paymentMethod: 'CASH',
+    });
+    assert.equal(resA.success, true);
+    // Spending increases by ₹450
+    assert.equal(store.computeMonthlyAnalytics(2026, 10).totalSpent, 450);
+    // Aarav balance unaffected
+    assert.equal(store.computeBalances()['Aarav'], 0);
+
+    // Case B: Counterparty-paid personal expense (Aarav paid for user's medicine)
+    const resB = store.addTransaction({
+      type: 'personal_expense',
+      amount: 600,
+      description: 'Prescription medicine',
+      category: 'Health',
+      date: '2026-11-03',
+      paidBy: 'Aarav',
+      paymentMethod: 'OTHER',
+    });
+    assert.equal(resB.success, true);
+    // Personal spending increases by ₹600 (total ₹1,050)
+    assert.equal(store.computeMonthlyAnalytics(2026, 10).totalSpent, 1050);
+    // User owes Aarav ₹600 (Aarav balance is -600)
+    assert.equal(store.computeBalances()['Aarav'], -600);
+  });
+
+  // 15. Phase 4: Shared Expense (Equal split & User paid)
+  test('15. Phase 4: Shared Expense with equal split creates receivables and conserves total', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Bob');
+    store.addPerson('Charlie');
+
+    // ₹1,200 dinner split equally between User, Bob, Charlie (₹400 each)
+    const res = store.addTransaction({
+      type: 'shared_expense',
+      amount: 1200,
+      payer: 'user',
+      userShare: 400,
+      allocations: [
+        { person: 'Bob', amount: 400 },
+        { person: 'Charlie', amount: 400 },
+      ],
+      description: 'Team Dinner',
+      category: 'Food',
+      date: '2026-11-04',
+    });
+    assert.equal(res.success, true);
+    // Personal spending = user's share (₹400)
+    assert.equal(store.computeMonthlyAnalytics(2026, 10).totalSpent, 400);
+    // Receivables created for others
+    assert.equal(store.computeBalances()['Bob'], 400);
+    assert.equal(store.computeBalances()['Charlie'], 400);
+  });
+
+  // 16. Phase 4: Shared Expense with Custom Split & Third-Party Payer
+  test('16. Phase 4: Shared Expense custom split enforces conservation and isolates non-user debts', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Pooja');
+    store.addPerson('Ravi');
+
+    // Case A: Discrepancy rejected when shares do not sum to total bill
+    const failRes = store.addTransaction({
+      type: 'shared_expense',
+      amount: 1000,
+      payer: 'user',
+      userShare: 300,
+      allocations: [{ person: 'Pooja', amount: 500 }], // 300 + 500 = 800 != 1000
+      date: '2026-11-05',
+    });
+    assert.equal(failRes.success, false);
+    assert.ok(failRes.error.includes('conserve'));
+
+    // Case B: Pooja paid ₹1,500 total bill: Pooja's share ₹500, Ravi's share ₹500, User's share ₹500
+    const passRes = store.addTransaction({
+      type: 'shared_expense',
+      amount: 1500,
+      payer: 'Pooja',
+      userShare: 500,
+      allocations: [
+        { person: 'Pooja', amount: 500 },
+        { person: 'Ravi', amount: 500 },
+      ],
+      description: 'Weekend Cabin Rental',
+      category: 'Entertainment',
+      date: '2026-11-05',
+    });
+    assert.equal(passRes.success, true);
+    // User spending is ₹500
+    assert.equal(store.computeMonthlyAnalytics(2026, 10).totalSpent, 500);
+    // User owes Pooja ₹500
+    assert.equal(store.computeBalances()['Pooja'], -500);
+    // Ravi's balance with user is 0 (Ravi owes Pooja directly, outside user's ledger)
+    assert.equal(store.computeBalances()['Ravi'], 0);
+  });
+
+  // 17. Phase 4: Lend Money and Borrow Money
+  test('17. Phase 4: Lend and Borrow journeys update peer debt without affecting personal spending', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Karan');
+    store.addPerson('Meera');
+
+    // Lend ₹2,000 to Karan
+    const lendRes = store.addTransaction({
+      type: 'lend',
+      person: 'Karan',
+      amount: 2000,
+      description: 'Advance loan',
+      date: '2026-11-06',
+      paymentMethod: 'CASH',
+    });
+    assert.equal(lendRes.success, true);
+    assert.equal(store.computeBalances()['Karan'], 2000);
+
+    // Borrow ₹1,500 from Meera
+    const borrowRes = store.addTransaction({
+      type: 'borrow',
+      person: 'Meera',
+      amount: 1500,
+      description: 'Short loan from Meera',
+      date: '2026-11-06',
+      paymentMethod: 'UPI',
+    });
+    assert.equal(borrowRes.success, true);
+    assert.equal(store.computeBalances()['Meera'], -1500);
+
+    // Personal spending remains 0 for lending/borrowing transfers
+    assert.equal(store.computeMonthlyAnalytics(2026, 10).totalSpent, 0);
+  });
+
+  // 18. Phase 4: Repayment Journey with Overpayment Guard
+  test('18. Phase 4: Repayment determines direction automatically and blocks overpayment', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Arjun');
+
+    // Lend ₹1,000 to Arjun
+    store.addTransaction({
+      type: 'lend',
+      person: 'Arjun',
+      amount: 1000,
+      date: '2026-11-01',
+    });
+    assert.equal(store.computeBalances()['Arjun'], 1000);
+
+    // Attempt overpayment of ₹1,200
+    const overRes = store.addTransaction({
+      type: 'repayment',
+      person: 'Arjun',
+      amount: 1200,
+      date: '2026-11-02',
+    });
+    assert.equal(overRes.success, false);
+    assert.ok(overRes.error.includes('exceeds'));
+
+    // Partial repayment of ₹400
+    const partRes = store.addTransaction({
+      type: 'repayment',
+      person: 'Arjun',
+      amount: 400,
+      date: '2026-11-02',
+    });
+    assert.equal(partRes.success, true);
+    assert.equal(store.computeBalances()['Arjun'], 600);
+
+    // Full remaining repayment of ₹600
+    const fullRes = store.addTransaction({
+      type: 'repayment',
+      person: 'Arjun',
+      amount: 600,
+      date: '2026-11-03',
+    });
+    assert.equal(fullRes.success, true);
+    assert.equal(store.computeBalances()['Arjun'], 0);
+
+    // Additional repayment when balance is 0 is rejected
+    const zeroRes = store.addTransaction({
+      type: 'repayment',
+      person: 'Arjun',
+      amount: 100,
+      date: '2026-11-04',
+    });
+    assert.equal(zeroRes.success, false);
+  });
+
+  // 19. Phase 4: UPI Payment Attempt Lifecycle & Reconciliation
+  test('19. Phase 4: UPI payment attempt validates handle, tracks attempt, and reconciles distinctly', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Suresh', 'suresh@upi');
+
+    // A: Invalid UPI handle rejected
+    assert.equal(isValidUpiId('not-a-upi-id'), false);
+    assert.equal(isValidUpiId('suresh@okicici'), true);
+
+    const invalidAttempt = store.createPaymentAttempt({
+      personName: 'Suresh',
+      upiId: 'invalid-upi',
+      amountRupees: 500,
+    });
+    assert.equal(invalidAttempt.success, false);
+    assert.ok(invalidAttempt.error.includes('Invalid UPI ID'));
+
+    // B: Valid attempt created with INITIATED status
+    const initRes = store.createPaymentAttempt({
+      personId: store.getState().people[0].id,
+      personName: 'Suresh',
+      upiId: 'suresh@okaxis',
+      amountRupees: 500,
+      note: 'Lending for lunch',
+    });
+    assert.equal(initRes.success, true);
+    const attemptId = initRes.attempt.id;
+    assert.equal(initRes.attempt.status, 'INITIATED');
+    assert.equal(initRes.attempt.isUnresolved, true);
+    assert.ok(initRes.attempt.intentUrl.startsWith('upi://pay?pa=suresh%40okaxis'));
+
+    // C: Reconciliation as FAILED or CANCELLED produces zero ledger mutations
+    const cancelRes = store.reconcilePaymentAttempt(attemptId, {
+      outcome: 'CANCELLED',
+      notes: 'User cancelled in Google Pay',
+    });
+    assert.equal(cancelRes.success, true);
+    assert.equal(cancelRes.attempt.status, 'CANCELLED');
+    assert.equal(cancelRes.attempt.isUnresolved, false);
+    assert.equal(store.getState().transactions.length, 0); // No transaction added!
+
+    // D: Duplicate reconciliation on already-settled attempt is rejected
+    const dupRes = store.reconcilePaymentAttempt(attemptId, { outcome: 'SUCCESS' });
+    assert.equal(dupRes.success, false);
+    assert.ok(dupRes.error.includes('already been reconciled'));
+
+    // E: Successful reconciliation creates ledger event with linked attemptId
+    const initRes2 = store.createPaymentAttempt({
+      personName: 'Suresh',
+      upiId: 'suresh@okaxis',
+      amountRupees: 750,
+    });
+    const attempt2Id = initRes2.attempt.id;
+
+    const successRes = store.reconcilePaymentAttempt(attempt2Id, {
+      outcome: 'SUCCESS',
+      ledgerTxnData: {
+        type: 'lend',
+        person: 'Suresh',
+        amount: 750,
+        description: 'Lend via UPI',
+        date: '2026-11-07',
+      },
+      notes: 'Confirmed in bank SMS',
+    });
+    assert.equal(successRes.success, true);
+    assert.equal(successRes.attempt.status, 'COMPLETED');
+    assert.equal(successRes.attempt.isUnresolved, false);
+    assert.ok(successRes.attempt.eventId);
+
+    // Ledger balance updated
+    assert.equal(store.computeBalances()['Suresh'], 750);
+  });
+
+  // 20. Phase 4: People with Balances Helper
+  test('20. Phase 4: getPeopleWithBalances sorts active counterparties correctly', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Alice');
+    store.addPerson('Bob');
+    store.addPerson('Charlie'); // zero balance
+
+    store.addTransaction({ type: 'lend', person: 'Alice', amount: 300, date: '2026-11-01' });
+    store.addTransaction({ type: 'borrow', person: 'Bob', amount: 800, date: '2026-11-01' });
+
+    const active = store.getPeopleWithBalances();
+    assert.equal(active.length, 2);
+    // Bob has |balance| = 800, Alice has |balance| = 300
+    assert.equal(active[0].name, 'Bob');
+    assert.equal(active[0].balanceRupees, -800);
+    assert.equal(active[1].name, 'Alice');
+    assert.equal(active[1].balanceRupees, 300);
   });
 });

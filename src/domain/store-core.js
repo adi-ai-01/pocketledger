@@ -34,6 +34,15 @@ export function uid() {
 }
 
 /**
+ * Validates a UPI ID according to standard handle format (username@provider).
+ */
+export function isValidUpiId(upiId) {
+  if (typeof upiId !== 'string') return false;
+  const trimmed = upiId.trim();
+  return /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(trimmed);
+}
+
+/**
  * Creates default Canonical Schema v2 state.
  */
 export function defaultStateV2() {
@@ -395,72 +404,122 @@ export class StoreCore {
         if (e.payerId === PARTY_USER && Array.isArray(e.allocations) && e.allocations.length > 0) {
           projected.push({
             id: e.id,
+            action: 'shared_expense',
             type: 'split',
+            payer: 'user',
+            payerName: 'You',
             person: e.allocations.map((a) => idToName.get(a.personId) || a.personId).join(', '),
             amount: e.totalAmountPaise / 100,
             myShare: e.userSharePaise / 100,
+            userShare: e.userSharePaise / 100,
             splits: e.allocations.map((a) => ({
               person: idToName.get(a.personId) || a.personId,
+              personId: a.personId,
+              amount: a.amountPaise / 100,
+            })),
+            allocations: e.allocations.map((a) => ({
+              person: idToName.get(a.personId) || a.personId,
+              personId: a.personId,
               amount: a.amountPaise / 100,
             })),
             description: e.description,
             category: e.category || 'Other',
+            paymentMethod: e.paymentMethod || 'OTHER',
             date: calendarDate,
             createdAt: e.createdAt,
+            rawKind: e.kind,
           });
         } else if (e.payerId !== PARTY_USER) {
+          const payerDisplayName = idToName.get(e.payerId) || e.payerId;
+          const isShared = Array.isArray(e.allocations) && e.allocations.length > 0;
           projected.push({
             id: e.id,
-            type: 'take',
-            person: idToName.get(e.payerId) || e.payerId,
-            amount: e.userSharePaise / 100,
+            action: isShared ? 'shared_expense' : 'personal_expense',
+            type: isShared ? 'split' : 'take',
+            payer: e.payerId,
+            payerName: payerDisplayName,
+            person: payerDisplayName,
+            amount: (isShared ? e.totalAmountPaise : e.userSharePaise) / 100,
+            myShare: e.userSharePaise / 100,
+            userShare: e.userSharePaise / 100,
+            splits: isShared ? e.allocations.map((a) => ({
+              person: idToName.get(a.personId) || a.personId,
+              personId: a.personId,
+              amount: a.amountPaise / 100,
+            })) : [],
+            allocations: isShared ? e.allocations.map((a) => ({
+              person: idToName.get(a.personId) || a.personId,
+              personId: a.personId,
+              amount: a.amountPaise / 100,
+            })) : [],
             description: e.description,
             category: e.category || 'Other',
+            paymentMethod: e.paymentMethod || 'OTHER',
             date: calendarDate,
             createdAt: e.createdAt,
+            rawKind: e.kind,
           });
         } else {
           projected.push({
             id: e.id,
+            action: 'personal_expense',
             type: 'give',
+            payer: 'user',
+            payerName: 'You',
             person: '',
             amount: e.totalAmountPaise / 100,
+            userShare: e.userSharePaise / 100,
             description: e.description,
             category: e.category || 'Other',
+            paymentMethod: e.paymentMethod || 'OTHER',
             date: calendarDate,
             createdAt: e.createdAt,
+            rawKind: e.kind,
           });
         }
       } else if (e.kind === EVENT_KINDS.TRANSFER) {
         const isLend = e.fromPartyId === PARTY_USER;
         const targetId = isLend ? e.toPartyId : e.fromPartyId;
+        const targetName = idToName.get(targetId) || targetId;
         projected.push({
           id: e.id,
+          action: isLend ? 'lend' : 'borrow',
           type: isLend ? 'give' : 'take',
-          person: idToName.get(targetId) || targetId,
+          person: targetName,
+          personId: targetId,
           amount: e.amountPaise / 100,
           description: e.description,
           category: e.category || 'Other',
+          paymentMethod: e.paymentMethod || 'OTHER',
           date: calendarDate,
           createdAt: e.createdAt,
+          rawKind: e.kind,
         });
       } else if (e.kind === EVENT_KINDS.REPAYMENT) {
-        const targetId = e.fromPartyId === PARTY_USER ? e.toPartyId : e.fromPartyId;
+        const isOutflow = e.fromPartyId === PARTY_USER;
+        const targetId = isOutflow ? e.toPartyId : e.fromPartyId;
+        const targetName = idToName.get(targetId) || targetId;
         projected.push({
           id: e.id,
+          action: 'repayment',
           type: 'settle',
-          person: idToName.get(targetId) || targetId,
+          person: targetName,
+          personId: targetId,
+          direction: isOutflow ? 'outflow' : 'inflow',
           amount: e.amountPaise / 100,
           description: e.description,
           category: e.category || 'Settlement',
+          paymentMethod: e.paymentMethod || 'OTHER',
           date: calendarDate,
           createdAt: e.createdAt,
+          rawKind: e.kind,
         });
       } else if (e.kind === EVENT_KINDS.ADJUSTMENT) {
         const isPositive = e.fromPartyId === PARTY_USER;
         const targetId = isPositive ? e.toPartyId : e.fromPartyId;
         projected.push({
           id: e.id,
+          action: 'adjustment',
           type: 'adjustment',
           person: idToName.get(targetId) || targetId,
           amount: (isPositive ? 1 : -1) * (e.amountPaise / 100),
@@ -468,6 +527,7 @@ export class StoreCore {
           category: e.category || 'Adjustment',
           date: calendarDate,
           createdAt: e.createdAt,
+          rawKind: e.kind,
         });
       } else if (e.kind === EVENT_KINDS.LEGACY_UNCLASSIFIED) {
         projected.push({
@@ -479,6 +539,7 @@ export class StoreCore {
           category: e.category || 'Other',
           date: calendarDate,
           createdAt: e.createdAt,
+          rawKind: e.kind,
         });
       }
     }
@@ -517,6 +578,7 @@ export class StoreCore {
         theme: this.state.settings?.theme || 'fantasy',
       },
       pendingReviews: this.state.pendingReviews,
+      paymentAttempts: this.state.paymentAttempts || [],
     };
   }
 
@@ -561,6 +623,103 @@ export class StoreCore {
   addTransaction(legacyTxn) {
     if (!this.isV2()) {
       // Unmigrated legacy state path
+      if (legacyTxn.type === 'personal_expense') {
+        const isPaidByUser = !legacyTxn.paidBy || legacyTxn.paidBy === 'user';
+        this.state.transactions.push({
+          id: legacyTxn.id || uid(),
+          type: isPaidByUser ? 'give' : 'take',
+          person: isPaidByUser ? '' : legacyTxn.paidBy,
+          amount: legacyTxn.amount,
+          description: legacyTxn.description || '',
+          category: legacyTxn.category || 'Other',
+          date: legacyTxn.date || new Date().toISOString(),
+          createdAt: Date.now(),
+        });
+        if (!isPaidByUser && legacyTxn.paidBy && !this.state.people.find((p) => p.name === legacyTxn.paidBy)) {
+          this.state.people.push({ id: uid(), name: legacyTxn.paidBy, upiId: '' });
+        }
+        this.saveCurrentState();
+        this.notify();
+        return { success: true };
+      }
+      if (legacyTxn.type === 'shared_expense') {
+        const splits = (legacyTxn.allocations || legacyTxn.splits || []).map((s) => ({ person: s.person, amount: s.amount }));
+        this.state.transactions.push({
+          id: legacyTxn.id || uid(),
+          type: 'split',
+          person: splits.map((s) => s.person).join(', '),
+          amount: legacyTxn.amount,
+          myShare: legacyTxn.userShare ?? legacyTxn.myShare ?? 0,
+          splits,
+          description: legacyTxn.description || '',
+          category: legacyTxn.category || 'Other',
+          date: legacyTxn.date || new Date().toISOString(),
+          createdAt: Date.now(),
+        });
+        for (const sp of splits) {
+          if (sp.person && !this.state.people.find((p) => p.name === sp.person)) {
+            this.state.people.push({ id: uid(), name: sp.person, upiId: '' });
+          }
+        }
+        this.saveCurrentState();
+        this.notify();
+        return { success: true };
+      }
+      if (legacyTxn.type === 'lend') {
+        this.state.transactions.push({
+          id: legacyTxn.id || uid(),
+          type: 'give',
+          person: legacyTxn.person,
+          amount: legacyTxn.amount,
+          description: legacyTxn.description || '',
+          category: legacyTxn.category || 'Other',
+          date: legacyTxn.date || new Date().toISOString(),
+          createdAt: Date.now(),
+        });
+        if (legacyTxn.person && !this.state.people.find((p) => p.name === legacyTxn.person)) {
+          this.state.people.push({ id: uid(), name: legacyTxn.person, upiId: '' });
+        }
+        this.saveCurrentState();
+        this.notify();
+        return { success: true };
+      }
+      if (legacyTxn.type === 'borrow') {
+        this.state.transactions.push({
+          id: legacyTxn.id || uid(),
+          type: 'take',
+          person: legacyTxn.person,
+          amount: legacyTxn.amount,
+          description: legacyTxn.description || '',
+          category: legacyTxn.category || 'Other',
+          date: legacyTxn.date || new Date().toISOString(),
+          createdAt: Date.now(),
+        });
+        if (legacyTxn.person && !this.state.people.find((p) => p.name === legacyTxn.person)) {
+          this.state.people.push({ id: uid(), name: legacyTxn.person, upiId: '' });
+        }
+        this.saveCurrentState();
+        this.notify();
+        return { success: true };
+      }
+      if (legacyTxn.type === 'repayment') {
+        this.state.transactions.push({
+          id: legacyTxn.id || uid(),
+          type: 'settle',
+          person: legacyTxn.person,
+          amount: legacyTxn.amount,
+          description: legacyTxn.description || '',
+          category: legacyTxn.category || 'Settlement',
+          date: legacyTxn.date || new Date().toISOString(),
+          createdAt: Date.now(),
+        });
+        if (legacyTxn.person && !this.state.people.find((p) => p.name === legacyTxn.person)) {
+          this.state.people.push({ id: uid(), name: legacyTxn.person, upiId: '' });
+        }
+        this.saveCurrentState();
+        this.notify();
+        return { success: true };
+      }
+
       this.state.transactions.push({ ...legacyTxn, id: legacyTxn.id || uid(), createdAt: Date.now() });
       if (legacyTxn.person && !this.state.people.find((p) => p.name === legacyTxn.person)) {
         this.state.people.push({ id: uid(), name: legacyTxn.person, upiId: '' });
@@ -581,7 +740,161 @@ export class StoreCore {
 
     let newEvent;
 
-    if (legacyTxn.type === 'give') {
+    if (legacyTxn.type === 'personal_expense') {
+      const isPaidByUser = !legacyTxn.paidBy || legacyTxn.paidBy === 'user' || legacyTxn.paidBy === PARTY_USER;
+      let payerId = PARTY_USER;
+      if (!isPaidByUser) {
+        const person = this.findOrCreatePerson(legacyTxn.paidBy || legacyTxn.person);
+        if (!person) return { success: false, error: 'Payer person is required' };
+        payerId = person.id;
+      }
+      newEvent = {
+        id: eventId,
+        kind: EVENT_KINDS.EXPENSE,
+        payerId,
+        totalAmountPaise: amountPaise,
+        userSharePaise: amountPaise,
+        allocations: [],
+        date: calendarDate,
+        createdAt: Date.now(),
+        description: legacyTxn.description || '',
+        category: legacyTxn.category || 'Other',
+        paymentMethod: legacyTxn.paymentMethod || 'OTHER',
+        metadata: legacyTxn.paymentAttemptId ? { paymentAttemptId: legacyTxn.paymentAttemptId } : {},
+      };
+    } else if (legacyTxn.type === 'shared_expense') {
+      const rawSplits = Array.isArray(legacyTxn.allocations) ? legacyTxn.allocations : (Array.isArray(legacyTxn.splits) ? legacyTxn.splits : []);
+      const userShareConv = convertRupeesToPaise(legacyTxn.userShare ?? legacyTxn.myShare ?? 0);
+      let userSharePaise = userShareConv.isValid ? userShareConv.amountPaise : 0;
+
+      const isPaidByUser = !legacyTxn.payer || legacyTxn.payer === 'user' || legacyTxn.payer === PARTY_USER;
+      let payerId = PARTY_USER;
+      if (!isPaidByUser) {
+        const p = this.findOrCreatePerson(legacyTxn.payer);
+        if (!p) return { success: false, error: 'Payer person is required' };
+        payerId = p.id;
+      }
+
+      const allocations = [];
+      let allocationsSum = 0;
+
+      for (const s of rawSplits) {
+        const p = this.findOrCreatePerson(s.person);
+        const sConv = convertRupeesToPaise(s.amount);
+        const aPaise = sConv.isValid ? sConv.amountPaise : 0;
+        allocations.push({
+          personId: p.id,
+          amountPaise: aPaise,
+        });
+        allocationsSum += aPaise;
+      }
+
+      // Check and enforce exact conservation
+      const calculatedSum = userSharePaise + allocationsSum;
+      const diff = calculatedSum - amountPaise;
+      if (Math.abs(diff) <= 2) {
+        userSharePaise = userSharePaise - diff; // reconcile residual
+      } else if (diff !== 0) {
+        return {
+          success: false,
+          error: `Shared expense does not conserve: sum of user share (₹${userSharePaise / 100}) and allocations (₹${allocationsSum / 100}) must equal total bill (₹${amountPaise / 100})`,
+        };
+      }
+
+      newEvent = {
+        id: eventId,
+        kind: EVENT_KINDS.EXPENSE,
+        payerId,
+        totalAmountPaise: amountPaise,
+        userSharePaise,
+        allocations,
+        date: calendarDate,
+        createdAt: Date.now(),
+        description: legacyTxn.description || '',
+        category: legacyTxn.category || 'Other',
+        paymentMethod: legacyTxn.paymentMethod || 'OTHER',
+        metadata: legacyTxn.paymentAttemptId ? { paymentAttemptId: legacyTxn.paymentAttemptId } : {},
+      };
+    } else if (legacyTxn.type === 'lend') {
+      const person = this.findOrCreatePerson(legacyTxn.person);
+      if (!person) return { success: false, error: 'Lending requires a person' };
+      newEvent = {
+        id: eventId,
+        kind: EVENT_KINDS.TRANSFER,
+        fromPartyId: PARTY_USER,
+        toPartyId: person.id,
+        amountPaise,
+        date: calendarDate,
+        createdAt: Date.now(),
+        description: legacyTxn.description || 'Lent money',
+        category: legacyTxn.category || 'Other',
+        paymentMethod: legacyTxn.paymentMethod || 'OTHER',
+        metadata: legacyTxn.paymentAttemptId ? { paymentAttemptId: legacyTxn.paymentAttemptId } : {},
+      };
+    } else if (legacyTxn.type === 'borrow') {
+      const person = this.findOrCreatePerson(legacyTxn.person);
+      if (!person) return { success: false, error: 'Borrowing requires a person' };
+      newEvent = {
+        id: eventId,
+        kind: EVENT_KINDS.TRANSFER,
+        fromPartyId: person.id,
+        toPartyId: PARTY_USER,
+        amountPaise,
+        date: calendarDate,
+        createdAt: Date.now(),
+        description: legacyTxn.description || 'Borrowed money',
+        category: legacyTxn.category || 'Other',
+        paymentMethod: legacyTxn.paymentMethod || 'OTHER',
+        metadata: legacyTxn.paymentAttemptId ? { paymentAttemptId: legacyTxn.paymentAttemptId } : {},
+      };
+    } else if (legacyTxn.type === 'repayment') {
+      const person = this.findOrCreatePerson(legacyTxn.person);
+      if (!person) return { success: false, error: 'Repayment requires a person' };
+
+      // Derive direction from person's current balance
+      const currentBalancePaise = computePersonBalance(this.state.transactions, person.id);
+
+      if (currentBalancePaise > 0) {
+        // Person owes user: Inflow repayment
+        if (amountPaise > currentBalancePaise) {
+          return { success: false, error: `Repayment amount (₹${amountPaise / 100}) exceeds counterparty balance (₹${currentBalancePaise / 100})` };
+        }
+        newEvent = {
+          id: eventId,
+          kind: EVENT_KINDS.REPAYMENT,
+          fromPartyId: person.id,
+          toPartyId: PARTY_USER,
+          amountPaise,
+          date: calendarDate,
+          createdAt: Date.now(),
+          description: legacyTxn.description || 'Repayment',
+          category: 'Settlement',
+          paymentMethod: legacyTxn.paymentMethod || 'OTHER',
+          metadata: legacyTxn.paymentAttemptId ? { paymentAttemptId: legacyTxn.paymentAttemptId } : {},
+        };
+      } else if (currentBalancePaise < 0) {
+        // User owes person: Outflow repayment
+        const userDebtPaise = Math.abs(currentBalancePaise);
+        if (amountPaise > userDebtPaise) {
+          return { success: false, error: `Repayment amount (₹${amountPaise / 100}) exceeds user debt (₹${userDebtPaise / 100})` };
+        }
+        newEvent = {
+          id: eventId,
+          kind: EVENT_KINDS.REPAYMENT,
+          fromPartyId: PARTY_USER,
+          toPartyId: person.id,
+          amountPaise,
+          date: calendarDate,
+          createdAt: Date.now(),
+          description: legacyTxn.description || 'Repayment',
+          category: 'Settlement',
+          paymentMethod: legacyTxn.paymentMethod || 'OTHER',
+          metadata: legacyTxn.paymentAttemptId ? { paymentAttemptId: legacyTxn.paymentAttemptId } : {},
+        };
+      } else {
+        return { success: false, error: 'Cannot record repayment: balance is already zero' };
+      }
+    } else if (legacyTxn.type === 'give') {
       const person = this.findOrCreatePerson(legacyTxn.person);
       newEvent = {
         id: eventId,
@@ -950,6 +1263,163 @@ export class StoreCore {
     } catch (e) {
       return { success: false, error: e.message };
     }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // PAYMENT ATTEMPTS (UPI Lifecycle & Reconciliation)
+  // ─────────────────────────────────────────────────────────
+
+  createPaymentAttempt({ personId, personName, upiId, amountRupees, note = '', type = 'UPI' }) {
+    if (type === 'UPI') {
+      if (!isValidUpiId(upiId)) {
+        return { success: false, error: `Invalid UPI ID format: '${upiId}'. Expected format: name@bank` };
+      }
+    }
+
+    const conv = convertRupeesToPaise(amountRupees);
+    if (!conv.isValid) {
+      return { success: false, error: `Invalid amount: ${conv.error}` };
+    }
+
+    const attemptId = this.idGenerator();
+    const amountFloat = conv.amountPaise / 100;
+    const cleanUpiId = (upiId || '').trim();
+    const cleanName = (personName || '').trim();
+    const intentUrl = `upi://pay?pa=${encodeURIComponent(cleanUpiId)}&pn=${encodeURIComponent(cleanName)}&am=${amountFloat.toFixed(2)}&cu=INR&tn=${encodeURIComponent(note || 'PocketLedger')}`;
+
+    const attempt = {
+      id: attemptId,
+      type,
+      recipientPartyId: personId || null,
+      recipientName: cleanName,
+      recipientUpiId: cleanUpiId,
+      amountPaise: conv.amountPaise,
+      amountRupees: amountFloat,
+      intentUrl,
+      status: 'INITIATED',
+      initiatedAt: Date.now(),
+      reconciledAt: null,
+      reconciliationNotes: '',
+      eventId: null,
+      isUnresolved: true,
+      metadata: {},
+    };
+
+    if (!Array.isArray(this.state.paymentAttempts)) {
+      this.state.paymentAttempts = [];
+    }
+
+    this.state.paymentAttempts.push(attempt);
+    this.saveCurrentState();
+    this.notify();
+
+    return {
+      success: true,
+      attempt,
+    };
+  }
+
+  getPaymentAttempts() {
+    return this.state.paymentAttempts || [];
+  }
+
+  getUnresolvedPaymentAttempts() {
+    return (this.state.paymentAttempts || []).filter((a) => a.isUnresolved);
+  }
+
+  reconcilePaymentAttempt(attemptId, { outcome, ledgerTxnData, notes = '' }) {
+    const attempts = this.state.paymentAttempts || [];
+    const attempt = attempts.find((a) => a.id === attemptId);
+    if (!attempt) {
+      return { success: false, error: `Payment attempt '${attemptId}' not found` };
+    }
+
+    if (!attempt.isUnresolved) {
+      return { success: false, error: `Payment attempt '${attemptId}' has already been reconciled (status: ${attempt.status})` };
+    }
+
+    const normalizedOutcome = (outcome || '').toUpperCase();
+    if (!['SUCCESS', 'FAILED', 'CANCELLED', 'UNKNOWN'].includes(normalizedOutcome)) {
+      return { success: false, error: `Invalid reconciliation outcome '${outcome}'` };
+    }
+
+    attempt.reconciliationNotes = notes;
+
+    if (normalizedOutcome === 'SUCCESS') {
+      if (!ledgerTxnData) {
+        return { success: false, error: 'Reconciling as SUCCESS requires ledger transaction data' };
+      }
+
+      const txnPayload = {
+        ...ledgerTxnData,
+        paymentAttemptId: attempt.id,
+        paymentMethod: attempt.type,
+      };
+
+      const addResult = this.addTransaction(txnPayload);
+      if (!addResult.success) {
+        return { success: false, error: `Failed to create ledger transaction: ${addResult.error}` };
+      }
+
+      const createdTxn = this.state.transactions[this.state.transactions.length - 1];
+      attempt.eventId = createdTxn ? createdTxn.id : null;
+      attempt.status = 'COMPLETED';
+      attempt.isUnresolved = false;
+      attempt.reconciledAt = Date.now();
+    } else if (normalizedOutcome === 'FAILED') {
+      attempt.status = 'FAILED';
+      attempt.isUnresolved = false;
+      attempt.reconciledAt = Date.now();
+    } else if (normalizedOutcome === 'CANCELLED') {
+      attempt.status = 'CANCELLED';
+      attempt.isUnresolved = false;
+      attempt.reconciledAt = Date.now();
+    } else if (normalizedOutcome === 'UNKNOWN') {
+      attempt.status = 'UNKNOWN';
+      attempt.isUnresolved = true;
+      attempt.reconciledAt = Date.now();
+    }
+
+    this.saveCurrentState();
+    this.notify();
+
+    return {
+      success: true,
+      attempt,
+    };
+  }
+
+  dismissPaymentAttempt(attemptId) {
+    const attempts = this.state.paymentAttempts || [];
+    const attempt = attempts.find((a) => a.id === attemptId);
+    if (!attempt) return { success: false, error: 'Attempt not found' };
+
+    attempt.isUnresolved = false;
+    this.saveCurrentState();
+    this.notify();
+    return { success: true };
+  }
+
+  getPeopleWithBalances() {
+    const balances = this.computeBalances();
+    const nameToId = this.getPersonNameToIdMap();
+    const peopleList = this.state.people || [];
+
+    const result = [];
+    for (const [name, balanceRupees] of Object.entries(balances)) {
+      if (balanceRupees !== 0) {
+        const personObj = peopleList.find((p) => p.name === name) || {};
+        result.push({
+          id: personObj.id || nameToId.get(name) || name,
+          name,
+          upiId: personObj.upiId || '',
+          balanceRupees,
+          balancePaise: Math.round(balanceRupees * 100),
+        });
+      }
+    }
+
+    return result.sort((a, b) => Math.abs(b.balanceRupees) - Math.abs(a.balanceRupees));
   }
 
   exportCSV() {

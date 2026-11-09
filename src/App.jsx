@@ -18,6 +18,7 @@ import HistoryTab from './components/HistoryTab.jsx';
 import SettingsTab from './components/SettingsTab.jsx';
 import TransactionSheet from './components/TransactionSheet.jsx';
 import PendingBanner from './components/PendingBanner.jsx';
+import UnresolvedAttemptsBanner from './components/transaction/UnresolvedAttemptsBanner.jsx';
 import { ArcaneWatermark } from './components/ThemeIcons.jsx';
 
 export default function App() {
@@ -122,6 +123,13 @@ export default function App() {
       {/* Pending alarms banner */}
       <PendingBanner alarms={store.state.pendingAlarms} onResolve={store.resolvePendingAlarm} />
 
+      {/* Unresolved UPI payment attempts banner */}
+      <UnresolvedAttemptsBanner
+        attempts={store.getUnresolvedPaymentAttempts ? store.getUnresolvedPaymentAttempts() : []}
+        onReconcile={(id, data) => store.reconcilePaymentAttempt(id, data)}
+        onDismiss={(id) => store.dismissPaymentAttempt(id)}
+      />
+
       {/* Main content with smooth fade-in navigation (Step 1) */}
       <main className="flex-1 overflow-y-auto pb-24">
         <div key={tab} className="animate-fade-in transition-all duration-300">
@@ -176,7 +184,7 @@ export default function App() {
       {/* FAB with theme-specific aesthetics (Step 4) */}
       {tab !== 'settings' && (
         <button
-          onClick={() => openSheet('give')}
+          onClick={() => openSheet(null)}
           className="theme-fab transition-transform active:scale-90"
           aria-label="New transaction"
         >
@@ -246,6 +254,8 @@ export default function App() {
           people={store.state.people}
           categories={store.state.categories}
           settings={store.state.settings}
+          balances={balances}
+          store={store}
           onSave={(txn) => {
             if (sheet.editTxn) {
               store.editTransaction(sheet.editTxn.id, txn);

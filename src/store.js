@@ -4,6 +4,7 @@ import {
   PRIMARY_STORAGE_KEY,
   BACKUP_STORAGE_KEY,
   uid,
+  isValidUpiId,
 } from './domain/store-core.js';
 
 // Global singleton instance backed by window.localStorage
@@ -62,7 +63,7 @@ export function getPersonHistory(transactions, personName) {
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 }
 
-export { uid, PRIMARY_STORAGE_KEY, BACKUP_STORAGE_KEY };
+export { uid, isValidUpiId, PRIMARY_STORAGE_KEY, BACKUP_STORAGE_KEY };
 
 /**
  * React hook to consume PocketLedger state powered by StoreCore
@@ -114,6 +115,14 @@ export function useStore() {
   const rollbackMigration = useCallback(() => globalStoreCore.rollbackMigration(), []);
   const getRawV1Backup = useCallback(() => globalStoreCore.getRawV1Backup(), []);
 
+  // ── Payment Attempts & Balances ──
+  const createPaymentAttempt = useCallback((p) => globalStoreCore.createPaymentAttempt(p), []);
+  const getPaymentAttempts = useCallback(() => globalStoreCore.getPaymentAttempts(), []);
+  const getUnresolvedPaymentAttempts = useCallback(() => globalStoreCore.getUnresolvedPaymentAttempts(), []);
+  const reconcilePaymentAttempt = useCallback((id, data) => globalStoreCore.reconcilePaymentAttempt(id, data), []);
+  const dismissPaymentAttempt = useCallback((id) => globalStoreCore.dismissPaymentAttempt(id), []);
+  const getPeopleWithBalances = useCallback(() => globalStoreCore.getPeopleWithBalances(), []);
+
   return {
     state,
     migrationStatus,
@@ -122,6 +131,12 @@ export function useStore() {
     executeMigration,
     rollbackMigration,
     getRawV1Backup,
+    createPaymentAttempt,
+    getPaymentAttempts,
+    getUnresolvedPaymentAttempts,
+    reconcilePaymentAttempt,
+    dismissPaymentAttempt,
+    getPeopleWithBalances,
     addTransaction,
     editTransaction,
     deleteTransaction,

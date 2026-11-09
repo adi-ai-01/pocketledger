@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, ArrowUpRight, ArrowDownLeft, Banknote, CreditCard, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, ArrowDownLeft, Banknote, CreditCard, CheckCircle2, ShieldCheck, ExternalLink } from 'lucide-react';
 import UpiModal from './UpiModal.jsx';
 
 export default function LendBorrowForm({
@@ -27,7 +27,22 @@ export default function LendBorrowForm({
   const [date, setDate] = useState(
     editTxn?.date ? editTxn.date.slice(0, 10) : new Date().toISOString().slice(0, 10)
   );
-  const [paymentMethod, setPaymentMethod] = useState(editTxn?.paymentMethod || 'CASH');
+
+  // For Outgoing Lend: channel can be 'UPI_LAUNCH' | 'CASH' | 'ALREADY_COMPLETED'
+  const [outgoingChannel, setOutgoingChannel] = useState(
+    editTxn?.paymentMethod === 'CASH'
+      ? 'CASH'
+      : editTxn
+      ? 'ALREADY_COMPLETED'
+      : 'CASH'
+  );
+
+  // Actual payment method when already completed
+  const [completedMethod, setCompletedMethod] = useState(editTxn?.paymentMethod || 'UPI');
+
+  // For Incoming Borrow: method can be 'UPI' | 'CASH' | 'OTHER'
+  const [incomingMethod, setIncomingMethod] = useState(editTxn?.paymentMethod || 'UPI');
+
   const [showUpiModal, setShowUpiModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
@@ -48,13 +63,28 @@ export default function LendBorrowForm({
       return;
     }
 
-    // If UPI selected in outgoing lend, prompt for UPI lifecycle verification
-    if (direction === 'lend' && paymentMethod === 'UPI' && !isEdit) {
-      setShowUpiModal(true);
-      return;
+    // Determine final payment method and whether external app is needed
+    let finalPaymentMethod = 'CASH';
+
+    if (direction === 'lend') {
+      if (outgoingChannel === 'UPI_LAUNCH') {
+        finalPaymentMethod = 'UPI';
+        // Launch external UPI intent via modal with return reconciliation
+        if (!isEdit) {
+          setShowUpiModal(true);
+          return;
+        }
+      } else if (outgoingChannel === 'CASH') {
+        finalPaymentMethod = 'CASH';
+      } else if (outgoingChannel === 'ALREADY_COMPLETED') {
+        finalPaymentMethod = completedMethod;
+      }
+    } else {
+      // Borrowing: strictly incoming money received
+      finalPaymentMethod = incomingMethod;
     }
 
-    // Direct save for Cash or Already Completed
+    // Direct save without initiating external payment
     const payload = {
       type: direction,
       person: person.trim(),
@@ -62,7 +92,7 @@ export default function LendBorrowForm({
       description: description.trim() || (direction === 'lend' ? 'Loan given' : 'Loan taken'),
       category,
       date,
-      paymentMethod,
+      paymentMethod: finalPaymentMethod,
     };
 
     const res = onSave(payload);
@@ -96,7 +126,10 @@ export default function LendBorrowForm({
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => setDirection('lend')}
+              onClick={() => {
+                setDirection('lend');
+                setErrorMessage(null);
+              }}
               className={`py-2.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
                 direction === 'lend'
                   ? 'border-accent bg-accent/15 text-text-primary'
@@ -107,7 +140,10 @@ export default function LendBorrowForm({
             </button>
             <button
               type="button"
-              onClick={() => setDirection('borrow')}
+              onClick={() => {
+                setDirection('borrow');
+                setErrorMessage(null);
+              }}
               className={`py-2.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
                 direction === 'borrow'
                   ? 'border-accent bg-accent/15 text-text-primary'
@@ -118,6 +154,25 @@ export default function LendBorrowForm({
             </button>
           </div>
         )}
+
+        {/* Direction Indicator */}
+        <div className={`p-2.5 rounded-xl border text-xs flex items-center gap-2 ${
+          direction === 'lend'
+            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+            : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+        }`}>
+          {direction === 'lend' ? (
+            <>
+              <ArrowUpRight size={15} />
+              <span>Outgoing loan: You are giving money. Person will owe you.</span>
+            </>
+          ) : (
+            <>
+              <ArrowDownLeft size={15} />
+              <span>Incoming loan: You received money. You will owe person.</span>
+            </>
+          )}
+        </div>
 
         {/* Amount */}
         <div>
@@ -160,67 +215,135 @@ export default function LendBorrowForm({
             ))}
           </datalist>
 
-          {matchingPerson?.upiId && (
+          {matchingPerson?.upiId && direction === 'lend' && (
             <p className="text-[11px] text-text-muted mt-1">
-              Saved UPI: <span className="font-mono text-text-primary">{matchingPerson.upiId}</span>
+              Recipient UPI: <span className="font-mono text-text-primary">{matchingPerson.upiId}</span>
             </p>
           )}
         </div>
 
-        {/* Payment Method Selector */}
-        <div>
-          <label className="text-xs text-text-muted mb-1.5 block">Payment Method</label>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              {
-                id: 'CASH',
-                label: 'Cash',
-                icon: Banknote,
-                desc: 'Cash handed over',
-              },
-              {
-                id: 'UPI',
-                label: 'UPI App',
-                icon: CreditCard,
-                desc: 'Via UPI deep link',
-              },
-              {
-                id: 'OTHER',
-                label: 'Already Paid',
-                icon: CheckCircle2,
-                desc: 'Net banking/Card',
-              },
-            ].map((m) => {
-              const Icon = m.icon;
-              const isSelected = paymentMethod === m.id;
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setPaymentMethod(m.id)}
-                  className={`py-2 px-2 rounded-xl border text-left transition-all ${
-                    isSelected
-                      ? 'border-accent bg-accent/15'
-                      : 'border-[var(--border-color)] bg-secondary/40 hover:border-accent/40'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <Icon size={14} className={isSelected ? 'text-accent' : 'text-text-muted'} />
-                    <span className="text-xs font-bold text-text-primary">{m.label}</span>
-                  </div>
-                  <p className="text-[10px] text-text-muted leading-tight">{m.desc}</p>
-                </button>
-              );
-            })}
+        {/* Payment Channel & Recording Status Selection */}
+        {direction === 'lend' ? (
+          /* OUTGOING LEND: Explicit choice between UPI (Launch App), Cash, or Already Completed */
+          <div className="space-y-2">
+            <label className="text-xs text-text-muted block">Payment & Recording Option</label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setOutgoingChannel('UPI_LAUNCH')}
+                className={`py-2 px-2 rounded-xl border text-left transition-all ${
+                  outgoingChannel === 'UPI_LAUNCH'
+                    ? 'border-accent bg-accent/15'
+                    : 'border-[var(--border-color)] bg-secondary/40 hover:border-accent/40'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <ExternalLink size={13} className={outgoingChannel === 'UPI_LAUNCH' ? 'text-accent' : 'text-text-muted'} />
+                  <span className="text-xs font-bold text-text-primary">Launch UPI</span>
+                </div>
+                <p className="text-[10px] text-text-muted leading-tight">Pay via UPI app</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setOutgoingChannel('CASH')}
+                className={`py-2 px-2 rounded-xl border text-left transition-all ${
+                  outgoingChannel === 'CASH'
+                    ? 'border-accent bg-accent/15'
+                    : 'border-[var(--border-color)] bg-secondary/40 hover:border-accent/40'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <Banknote size={13} className={outgoingChannel === 'CASH' ? 'text-accent' : 'text-text-muted'} />
+                  <span className="text-xs font-bold text-text-primary">Cash</span>
+                </div>
+                <p className="text-[10px] text-text-muted leading-tight">Cash handed over</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setOutgoingChannel('ALREADY_COMPLETED')}
+                className={`py-2 px-2 rounded-xl border text-left transition-all ${
+                  outgoingChannel === 'ALREADY_COMPLETED'
+                    ? 'border-accent bg-accent/15'
+                    : 'border-[var(--border-color)] bg-secondary/40 hover:border-accent/40'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <CheckCircle2 size={13} className={outgoingChannel === 'ALREADY_COMPLETED' ? 'text-accent' : 'text-text-muted'} />
+                  <span className="text-xs font-bold text-text-primary">Completed</span>
+                </div>
+                <p className="text-[10px] text-text-muted leading-tight">Already transferred</p>
+              </button>
+            </div>
+
+            {/* Sub-selector for actual method when already completed */}
+            {outgoingChannel === 'ALREADY_COMPLETED' && (
+              <div className="p-3 rounded-xl bg-secondary/40 border border-[var(--border-color)] space-y-1.5 animate-fade-in">
+                <label className="text-[11px] text-text-muted block">Actual method used outside PocketLedger:</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'UPI', label: 'UPI / QR' },
+                    { id: 'OTHER', label: 'Net Banking' },
+                    { id: 'CASH', label: 'Cash' },
+                  ].map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setCompletedMethod(m.id)}
+                      className={`py-1.5 px-2 rounded-lg border text-xs font-medium transition-all ${
+                        completedMethod === m.id
+                          ? 'border-accent bg-accent/20 text-text-primary font-bold'
+                          : 'border-white/10 text-text-muted hover:text-text-primary'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-text-muted leading-tight mt-1">
+                  Records loan in ledger directly without launching external UPI intent.
+                </p>
+              </div>
+            )}
           </div>
-          <p className="text-[11px] text-text-muted mt-1.5">
-            {paymentMethod === 'UPI' && direction === 'lend'
-              ? 'Tapping Continue will let you verify and launch your UPI app with explicit reconciliation.'
-              : paymentMethod === 'OTHER'
-              ? 'Records the transaction in your ledger without initiating an external payment request.'
-              : 'Records an in-person cash handover.'}
-          </p>
-        </div>
+        ) : (
+          /* INCOMING BORROW: Money received into user's possession */
+          <div className="space-y-2">
+            <label className="text-xs text-text-muted block">How did you receive this money?</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'UPI', label: 'UPI / QR', icon: CreditCard, desc: 'Received in UPI' },
+                { id: 'CASH', label: 'Cash', icon: Banknote, desc: 'Received in cash' },
+                { id: 'OTHER', label: 'Bank / Other', icon: ShieldCheck, desc: 'IMPS / NEFT' },
+              ].map((m) => {
+                const Icon = m.icon;
+                const isSelected = incomingMethod === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setIncomingMethod(m.id)}
+                    className={`py-2 px-2 rounded-xl border text-left transition-all ${
+                      isSelected
+                        ? 'border-accent bg-accent/15'
+                        : 'border-[var(--border-color)] bg-secondary/40 hover:border-accent/40'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Icon size={14} className={isSelected ? 'text-accent' : 'text-text-muted'} />
+                      <span className="text-xs font-bold text-text-primary">{m.label}</span>
+                    </div>
+                    <p className="text-[10px] text-text-muted leading-tight">{m.desc}</p>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-text-muted">
+              Borrowing records money received into your possession. No outgoing UPI intent will be launched.
+            </p>
+          </div>
+        )}
 
         {/* Description */}
         <div>
@@ -269,14 +392,14 @@ export default function LendBorrowForm({
           {isEdit
             ? 'Save Changes'
             : direction === 'lend'
-            ? paymentMethod === 'UPI'
+            ? outgoingChannel === 'UPI_LAUNCH'
               ? 'Proceed to UPI Verification'
               : 'Record Lending'
-            : 'Record Borrowing'}
+            : 'Record Borrowing (Money Received)'}
         </button>
       </form>
 
-      {/* UPI Intent & Reconciliation Modal */}
+      {/* Outgoing UPI Intent & Reconciliation Modal */}
       {showUpiModal && store && (
         <UpiModal
           isOpen={showUpiModal}
@@ -300,4 +423,3 @@ export default function LendBorrowForm({
     </>
   );
 }
-

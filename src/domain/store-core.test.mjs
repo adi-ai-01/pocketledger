@@ -707,4 +707,63 @@ describe('StoreCore Integration & Migration Engine', () => {
     assert.equal(active[1].name, 'Alice');
     assert.equal(active[1].balanceRupees, 300);
   });
+
+  // 21. Phase 4: Payment Attempt Idempotency & Distinction
+  test('21. Phase 4: Payment attempt deduplication prevents multiple transactions per attempt and preserves distinct statuses', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Vikram', 'vikram@okaxis');
+
+    const initRes = store.createPaymentAttempt({
+      personName: 'Vikram',
+      upiId: 'vikram@okaxis',
+      amountRupees: 500,
+    });
+    const attemptId = initRes.attempt.id;
+
+    // Successful reconciliation creates exactly 1 transaction
+    const recRes = store.reconcilePaymentAttempt(attemptId, {
+      outcome: 'SUCCESS',
+      ledgerTxnData: {
+        type: 'lend',
+        person: 'Vikram',
+        amount: 500,
+        date: '2026-11-08',
+      },
+    });
+    assert.equal(recRes.success, true);
+    assert.equal(store.getState().transactions.length, 1);
+
+    // Direct attempt to add another transaction with the same paymentAttemptId is rejected
+    const dupTxnRes = store.addTransaction({
+      type: 'lend',
+      person: 'Vikram',
+      amount: 500,
+      date: '2026-11-08',
+      paymentAttemptId: attemptId,
+    });
+    assert.equal(dupTxnRes.success, false);
+    assert.ok(dupTxnRes.error.includes('already generated a ledger transaction'));
+    assert.equal(store.getState().transactions.length, 1);
+
+    // UNKNOWN outcome preserves unresolved state for subsequent verification
+    const initRes2 = store.createPaymentAttempt({
+      personName: 'Vikram',
+      upiId: 'vikram@okaxis',
+      amountRupees: 200,
+    });
+    const attempt2Id = initRes2.attempt.id;
+
+    const unkRes = store.reconcilePaymentAttempt(attempt2Id, {
+      outcome: 'UNKNOWN',
+      notes: 'Bank pending',
+    });
+    assert.equal(unkRes.success, true);
+    assert.equal(unkRes.attempt.status, 'UNKNOWN');
+    assert.equal(unkRes.attempt.isUnresolved, true);
+    assert.equal(store.getUnresolvedPaymentAttempts().some((a) => a.id === attempt2Id), true);
+    // No ledger event was created
+    assert.equal(store.getState().transactions.length, 1);
+  });
 });

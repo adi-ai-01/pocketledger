@@ -734,6 +734,18 @@ export class StoreCore {
     if (!moneyConv.isValid) {
       return { success: false, error: `Invalid amount: ${moneyConv.error}` };
     }
+
+    if (legacyTxn.paymentAttemptId) {
+      const alreadyLinked = (this.state.transactions || []).some(
+        (t) => t.metadata?.paymentAttemptId === legacyTxn.paymentAttemptId
+      );
+      if (alreadyLinked) {
+        return {
+          success: false,
+          error: `Payment attempt '${legacyTxn.paymentAttemptId}' has already generated a ledger transaction`,
+        };
+      }
+    }
     const amountPaise = moneyConv.amountPaise;
     const calendarDate = extractCalendarDate(legacyTxn.date);
     const eventId = legacyTxn.id || this.idGenerator();

@@ -64,11 +64,11 @@ export default function SettingsTab({
     (t) => t.kind === 'LEGACY_UNCLASSIFIED' && t.reviewRequired
   );
 
-  const themeBadges = {
-    fantasy: { colors: ['#0f1115', '#8da6c4', '#10261e', '#2d141b'], icon: '🐺' },
-    elden: { colors: ['#08080a', '#e5c158', '#13241b', '#28161b'], icon: '✨' },
-    cyber: { colors: ['#060714', '#00f0ff', '#0c232c', '#281126'], icon: '⚡' },
-    pixel: { colors: ['#1e1e1e', '#55ff55', '#1f3622', '#3d1c1c'], icon: '⛏️' },
+  const themePalettes = {
+    fantasy: ['#0b0d12', '#60a5fa', '#242c3d'],
+    elden: ['#0a0a0c', '#d4af37', '#2d2a22'],
+    cyber: ['#070913', '#38bdf8', '#818cf8'],
+    pixel: ['#121214', '#22c55e', '#2a2a30'],
   };
 
   // ── Handlers: Preferences ──
@@ -316,19 +316,27 @@ export default function SettingsTab({
             <div className="grid grid-cols-2 gap-2.5">
               {themes.map((t) => {
                 const isSelected = theme === t.id;
-                const badge = themeBadges[t.id];
+                const palette = themePalettes[t.id] || [];
                 return (
                   <button
                     key={t.id}
                     onClick={() => setTheme(t.id)}
                     className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all active:scale-95 ${
                       isSelected
-                        ? 'border-accent bg-accent/15 shadow-[0_0_12px_var(--accent-glow)]'
-                        : 'border-[var(--border-color)] bg-secondary/60 hover:border-accent/40'
+                        ? 'border-accent bg-accent/15'
+                        : 'border-[var(--border-color)] bg-secondary/40 hover:border-accent/40'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-base">{badge?.icon}</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex gap-1.5">
+                        {palette.map((color, i) => (
+                          <span
+                            key={i}
+                            className="w-3 h-3 rounded-full border border-black/20"
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
                       {isSelected && (
                         <span className="w-4 h-4 rounded-full bg-accent flex items-center justify-center text-[10px] text-white">
                           <Check size={11} strokeWidth={3} />
@@ -336,17 +344,8 @@ export default function SettingsTab({
                       )}
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-text-primary">{t.name}</p>
+                      <p className="text-xs font-semibold text-text-primary">{t.name}</p>
                       <p className="text-[10px] text-text-muted line-clamp-1">{t.desc}</p>
-                    </div>
-                    <div className="flex gap-1 mt-2">
-                      {badge?.colors.map((c, i) => (
-                        <span
-                          key={i}
-                          className="w-3 h-3 rounded-full border border-black/30"
-                          style={{ backgroundColor: c }}
-                        />
-                      ))}
                     </div>
                   </button>
                 );

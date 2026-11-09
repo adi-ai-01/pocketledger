@@ -18,133 +18,123 @@
 }
 
 /* ─────────────────────────────────────────────────────────────
-   GLOBAL CSS VARIABLES & 4 VISUAL THEMES
+   GLOBAL CSS VARIABLES & 4 MATURE FINTECH THEMES
    Themes: fantasy | elden | cyber | pixel
    ───────────────────────────────────────────────────────────── */
 
 :root {
-  /* Default: Fantasy Theme (House Stark / Cold Medieval) */
-  --bg-primary: #0f1115;
-  --bg-secondary: #161920;
-  --bg-card: #13161c;
-  --text-primary: #e6ebf2;
+  /* Default: Fantasy Theme (Cold Charcoal / Slate & Steel Blue) */
+  --bg-primary: #0b0d12;
+  --bg-secondary: #12161f;
+  --bg-card: #161b26;
+  --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
-  --text-muted: #647082;
-  --accent-color: #8da6c4;
-  --accent-dim: #54687d;
-  --accent-glow: rgba(141, 166, 196, 0.25);
-  --border-style: solid;
-  --border-color: #2b3342;
-  --border-width: 1px;
-  --border-radius-card: 16px;
-  --border-radius-btn: 12px;
-  --font-family: 'Cinzel', Garamond, 'Times New Roman', Georgia, serif;
-  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  --owed-green-bg: #10261e;
-  --owed-green-text: #4ade80;
-  --owed-red-bg: #2d141b;
-  --owed-red-text: #f87171;
-  --money-spent-color: #8da6c4;
-}
-
-/* ── 1. FANTASY THEME (House Stark / Cold Medieval Atmosphere / Muted Icy Tones) ── */
-[data-theme="fantasy"] {
-  --bg-primary: #0f1115;
-  --bg-secondary: #161920;
-  --bg-card: #13161c;
-  --text-primary: #e6ebf2;
-  --text-secondary: #94a3b8;
-  --text-muted: #647082;
-  --accent-color: #8da6c4;
-  --accent-dim: #54687d;
-  --accent-glow: rgba(141, 166, 196, 0.25);
-  --border-style: solid;
-  --border-color: #2b3342;
-  --border-width: 1px;
-  --border-radius-card: 16px;
-  --border-radius-btn: 12px;
-  --font-family: 'Cinzel', Garamond, 'Times New Roman', Georgia, serif;
-  --card-shadow: 0 6px 24px rgba(0, 0, 0, 0.65);
-  --owed-green-bg: #10261e;
-  --owed-green-text: #4ade80;
-  --owed-red-bg: #2d141b;
-  --owed-red-text: #f87171;
-  --money-spent-color: #8da6c4;
-}
-
-/* ── 2. ELDEN THEME (Golden Grace / Warm Sacred Gold / Stone Aesthetic) ── */
-[data-theme="elden"] {
-  --bg-primary: #08080a;
-  --bg-secondary: #111114;
-  --bg-card: #0d0d10;
-  --text-primary: #f5eedc;
-  --text-secondary: #b3a58e;
-  --text-muted: #736754;
-  --accent-color: #e5c158;
-  --accent-dim: #b38c26;
-  --accent-glow: rgba(229, 193, 88, 0.45);
-  --border-style: solid;
-  --border-color: #5c4c23;
-  --border-width: 1px;
+  --text-muted: #64748b;
+  --accent-color: #60a5fa;
+  --accent-dim: #3b82f6;
+  --accent-glow: rgba(96, 165, 250, 0.15);
+  --border-color: #242c3d;
   --border-radius-card: 14px;
   --border-radius-btn: 10px;
-  --font-family: 'Cinzel', Garamond, 'Times New Roman', Georgia, serif;
-  --card-shadow: 0 4px 25px rgba(0, 0, 0, 0.85);
-  --owed-green-bg: #13241b;
-  --owed-green-text: #e5c158;
-  --owed-red-bg: #28161b;
-  --owed-red-text: #f87171;
-  --money-spent-color: #e5c158;
-}
-
-/* ── 3. CYBER THEME (Solo Leveling HUD / Futuristic Neon / High Contrast) ── */
-[data-theme="cyber"] {
-  --bg-primary: #060714;
-  --bg-secondary: #0d0e24;
-  --bg-card: #0a0b1e;
-  --text-primary: #f0f6fc;
-  --text-secondary: #7dd3fc;
-  --text-muted: #64748b;
-  --accent-color: #00f0ff;
-  --accent-dim: #a855f7;
-  --accent-glow: rgba(0, 240, 255, 0.4);
-  --border-style: solid;
-  --border-color: #00f0ff;
-  --border-width: 1.5px;
-  --border-radius-card: 16px;
-  --border-radius-btn: 12px;
-  --font-family: 'Rajdhani', 'Inter', system-ui, -apple-system, sans-serif;
-  --card-shadow: 0 0 15px rgba(0, 240, 255, 0.25);
-  --owed-green-bg: #0c232c;
-  --owed-green-text: #00f0ff;
-  --owed-red-bg: #281126;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.25);
+  --owed-green-bg: rgba(16, 185, 129, 0.1);
+  --owed-green-text: #10b981;
+  --owed-red-bg: rgba(244, 63, 94, 0.1);
   --owed-red-text: #f43f5e;
-  --money-spent-color: #ffffff;
+  --money-spent-color: #f1f5f9;
 }
 
-/* ── 4. PIXEL THEME (Minecraft-Inspired 8-Bit Retro / Beveled Pixel Borders) ── */
+/* ── 1. FANTASY THEME (Cold Charcoal / Slate & Steel Blue) ── */
+[data-theme="fantasy"] {
+  --bg-primary: #0b0d12;
+  --bg-secondary: #12161f;
+  --bg-card: #161b26;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent-color: #60a5fa;
+  --accent-dim: #3b82f6;
+  --accent-glow: rgba(96, 165, 250, 0.15);
+  --border-color: #242c3d;
+  --border-radius-card: 14px;
+  --border-radius-btn: 10px;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.25);
+  --owed-green-bg: rgba(16, 185, 129, 0.1);
+  --owed-green-text: #10b981;
+  --owed-red-bg: rgba(244, 63, 94, 0.1);
+  --owed-red-text: #f43f5e;
+  --money-spent-color: #f1f5f9;
+}
+
+/* ── 2. ELDEN THEME (Obsidian & Muted Warm Gold) ── */
+[data-theme="elden"] {
+  --bg-primary: #0a0a0c;
+  --bg-secondary: #121216;
+  --bg-card: #18181e;
+  --text-primary: #f5eedc;
+  --text-secondary: #a89f8d;
+  --text-muted: #6e6758;
+  --accent-color: #d4af37;
+  --accent-dim: #aa8c2c;
+  --accent-glow: rgba(212, 175, 55, 0.15);
+  --border-color: #2d2a22;
+  --border-radius-card: 14px;
+  --border-radius-btn: 10px;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+  --owed-green-bg: rgba(16, 185, 129, 0.1);
+  --owed-green-text: #10b981;
+  --owed-red-bg: rgba(244, 63, 94, 0.1);
+  --owed-red-text: #f43f5e;
+  --money-spent-color: #f5eedc;
+}
+
+/* ── 3. CYBER THEME (Deep Navy, Controlled Cyan & Violet) ── */
+[data-theme="cyber"] {
+  --bg-primary: #070913;
+  --bg-secondary: #0d1224;
+  --bg-card: #131b33;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent-color: #38bdf8;
+  --accent-dim: #818cf8;
+  --accent-glow: rgba(56, 189, 248, 0.15);
+  --border-color: #1e293b;
+  --border-radius-card: 14px;
+  --border-radius-btn: 10px;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.35);
+  --owed-green-bg: rgba(16, 185, 129, 0.1);
+  --owed-green-text: #10b981;
+  --owed-red-bg: rgba(244, 63, 94, 0.1);
+  --owed-red-text: #f43f5e;
+  --money-spent-color: #f8fafc;
+}
+
+/* ── 4. PIXEL THEME (Clean Minimalist Charcoal & Emerald) ── */
 [data-theme="pixel"] {
-  --bg-primary: #1e1e1e;
-  --bg-secondary: #272727;
-  --bg-card: #2e2e2e;
+  --bg-primary: #121214;
+  --bg-secondary: #1a1a1e;
+  --bg-card: #222228;
   --text-primary: #ffffff;
-  --text-secondary: #cccccc;
-  --text-muted: #888888;
-  --accent-color: #55ff55;
-  --accent-dim: #00aa00;
-  --accent-glow: rgba(85, 255, 85, 0.35);
-  --border-style: solid;
-  --border-color: #555555;
-  --border-width: 2px;
-  --border-radius-card: 4px;
-  --border-radius-btn: 4px;
-  --font-family: 'Press Start 2P', 'Courier New', monospace;
-  --card-shadow: 0 4px 0 #111111;
-  --owed-green-bg: #1f3622;
-  --owed-green-text: #55ff55;
-  --owed-red-bg: #3d1c1c;
-  --owed-red-text: #ff5555;
-  --money-spent-color: #ffaa00;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --accent-color: #22c55e;
+  --accent-dim: #16a34a;
+  --accent-glow: rgba(34, 197, 94, 0.15);
+  --border-color: #33333d;
+  --border-radius-card: 6px;
+  --border-radius-btn: 6px;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.25);
+  --owed-green-bg: rgba(34, 197, 94, 0.1);
+  --owed-green-text: #22c55e;
+  --owed-red-bg: rgba(239, 68, 68, 0.1);
+  --owed-red-text: #ef4444;
+  --money-spent-color: #ffffff;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -164,14 +154,14 @@
 .border-accent { border-color: var(--accent-color); }
 
 .border-theme {
-  border-width: var(--border-width);
-  border-style: var(--border-style);
+  border-width: 1px;
+  border-style: solid;
   border-color: var(--border-color);
 }
 
 /* Smooth transition when switching themes */
 html, body, #root, .theme-transition {
-  transition: background-color 250ms ease, color 250ms ease, border-color 250ms ease, box-shadow 250ms ease;
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
 }
 
 /* Base styles */
@@ -182,7 +172,7 @@ html, body, #root, .theme-transition {
 }
 
 html {
-  font-size: 16px;
+  font-size: 15px;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -218,24 +208,12 @@ body {
   }
 }
 
-/* ─────────────────────────────────────────────────────────────
-   TYPOGRAPHY ADJUSTMENTS FOR PIXEL THEME READABILITY
-   Delivers authentic retro headings with clean, readable body copy
-   ───────────────────────────────────────────────────────────── */
-
-[data-theme="pixel"] {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-  font-size: 13px;
-  letter-spacing: -0.2px;
-}
-
+/* Optional pixel heading accent for Pixel theme */
 [data-theme="pixel"] h1,
-[data-theme="pixel"] h2,
-[data-theme="pixel"] h3,
-[data-theme="pixel"] .font-pixel,
-[data-theme="pixel"] .btn-primary,
-[data-theme="pixel"] .tab-item span {
+[data-theme="pixel"] .font-pixel {
   font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 0.95rem;
+  letter-spacing: -0.5px;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -243,7 +221,7 @@ body {
    ───────────────────────────────────────────────────────────── */
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -252,235 +230,60 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 10px 0 var(--accent-glow); }
-  50% { box-shadow: 0 0 25px 6px var(--accent-glow); }
-}
-
-@keyframes rotateSlow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.animate-fade-in { animation: fadeIn 0.25s ease-out forwards; }
-.animate-slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-.animate-pulse-glow { animation: pulseGlow 2.5s ease-in-out infinite; }
-.animate-spin-slow { animation: rotateSlow 20s linear infinite; }
+.animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
+.animate-slide-up { animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
 /* ─────────────────────────────────────────────────────────────
-   THEME-SPECIFIC CARDS & GLASS STYLING
+   CLEAN MINIMALIST CARDS
    ───────────────────────────────────────────────────────────── */
 
 .theme-card, .glass {
   background: var(--bg-card);
-  border: var(--border-width) var(--border-style) var(--border-color);
+  border: 1px solid var(--border-color);
   border-radius: var(--border-radius-card);
   box-shadow: var(--card-shadow);
-  transition: all 0.25s ease;
-  position: relative;
-}
-
-/* Fantasy Card Overlay / Cold Forged Iron */
-[data-theme="fantasy"] .theme-card, [data-theme="fantasy"] .glass {
-  background: linear-gradient(145deg, #161922 0%, #101218 100%);
-  border: 1px solid #2b3342;
-  box-shadow: inset 0 0 0 1px rgba(141, 166, 196, 0.08), 0 6px 20px rgba(0, 0, 0, 0.65);
-}
-
-/* Elden Ring Card */
-[data-theme="elden"] .theme-card, [data-theme="elden"] .glass {
-  background: #0d0d10;
-  border: 1px solid #5c4c23;
-  box-shadow: inset 0 0 0 1px rgba(229, 193, 88, 0.15), 0 8px 30px rgba(0, 0, 0, 0.9);
-}
-
-/* Cyber Card */
-[data-theme="cyber"] .theme-card, [data-theme="cyber"] .glass {
-  background: linear-gradient(160deg, #0d0f2b 0%, #060714 100%);
-  border: 1.5px solid #00f0ff;
-  box-shadow: 0 0 14px rgba(0, 240, 255, 0.35), inset 0 0 15px rgba(0, 240, 255, 0.08);
-}
-
-/* Pixel Card - Minecraft GUI bevel */
-[data-theme="pixel"] .theme-card, [data-theme="pixel"] .glass {
-  background: #2b2b2b;
-  border: 3px solid;
-  border-color: #555555 #111111 #111111 #555555;
-  box-shadow: inset 2px 2px 0 #777777, inset -2px -2px 0 #1e1e1e;
-  border-radius: 4px;
-}
-
-/* ─────────────────────────────────────────────────────────────
-   THEME-SPECIFIC RECENT CARD STYLES
-   ───────────────────────────────────────────────────────────── */
-
-/* Elden Ring Textured Aged Parchment */
-.recent-card-elden {
-  background: linear-gradient(135deg, #e4d7be 0%, #d8c6a0 45%, #e1d3b5 100%) !important;
-  color: #2b2216 !important;
-  border: 1px solid #755f30 !important;
-  box-shadow: inset 0 0 0 1px rgba(117, 95, 48, 0.4), 0 4px 15px rgba(0, 0, 0, 0.6) !important;
-  position: relative;
-  overflow: hidden;
-}
-.recent-card-elden::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(rgba(145, 115, 60, 0.12) 1px, transparent 0);
-  background-size: 8px 8px;
-  pointer-events: none;
-}
-.recent-card-elden p {
-  color: #2c2215 !important;
-}
-
-/* Fantasy Ornate Plaque */
-.recent-card-fantasy {
-  background: linear-gradient(145deg, #161922 0%, #101218 100%);
-  border: 1px solid #2b3342;
-  position: relative;
-}
-
-/* Cyber Arcane Watermark Card */
-.recent-card-cyber {
-  background: #0a0b1e;
-  border: 1px solid rgba(0, 240, 255, 0.5);
-  box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
-  position: relative;
-  overflow: hidden;
-}
-
-/* Pixel Dirt Block with Chest */
-.recent-card-pixel {
-  background: #4a3319;
-  border: 3px solid;
-  border-color: #555555 #111111 #111111 #555555;
+  transition: border-color 0.15s ease;
   position: relative;
 }
 
 /* ─────────────────────────────────────────────────────────────
-   QUICK ACTION BUTTONS
-   ───────────────────────────────────────────────────────────── */
-
-.quick-action-btn {
-  background: var(--bg-card);
-  border: var(--border-width) var(--border-style) var(--border-color);
-  border-radius: var(--border-radius-btn);
-  padding: 16px 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  min-height: 48px;
-  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-  font-family: var(--font-family);
-}
-.quick-action-btn:active {
-  transform: scale(0.96);
-}
-
-/* Fantasy Quick Button */
-[data-theme="fantasy"] .quick-action-btn {
-  background: #161922;
-  border: 1px solid #2b3342;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-}
-
-/* Elden Carved Stone Tablet */
-[data-theme="elden"] .quick-action-btn {
-  background: #111114;
-  border: 2px solid #3a321f;
-  box-shadow: inset 0 0 0 1px #1a160d, 0 6px 18px rgba(0, 0, 0, 0.8);
-}
-
-/* Cyber Neon Quick Button */
-[data-theme="cyber"] .quick-action-btn {
-  background: #090a20;
-  border: 1.5px solid rgba(0, 240, 255, 0.6);
-  box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
-}
-[data-theme="cyber"] .quick-action-btn:hover {
-  border-color: #00f0ff;
-  box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
-}
-
-/* Pixel Stone Bevel Button */
-[data-theme="pixel"] .quick-action-btn {
-  background: #3c3c3c;
-  border: 3px solid;
-  border-color: #6d6d6d #1e1e1e #1e1e1e #6d6d6d;
-  box-shadow: inset 2px 2px 0 #888888;
-  border-radius: 4px;
-}
-[data-theme="pixel"] .quick-action-btn:active {
-  border-color: #1e1e1e #6d6d6d #6d6d6d #1e1e1e;
-  box-shadow: inset 2px 2px 0 #111111;
-  transform: scale(0.97);
-}
-
-/* ─────────────────────────────────────────────────────────────
-   FLOATING ACTION BUTTONS (FAB) BY THEME
+   FLOATING ACTION BUTTON (FAB)
    ───────────────────────────────────────────────────────────── */
 
 .theme-fab {
   position: fixed;
-  bottom: 84px;
+  bottom: 76px;
   right: 20px;
   z-index: 40;
-  width: 58px;
-  height: 58px;
+  width: 52px;
+  height: 52px;
   border-radius: 9999px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  border: none;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: var(--accent-color);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease, opacity 0.15s ease;
 }
 .theme-fab:active {
-  transform: scale(0.92);
+  transform: scale(0.93);
+}
+
+[data-theme="elden"] .theme-fab {
+  color: #0a0a0c;
+}
+
+[data-theme="pixel"] .theme-fab {
+  color: #000000;
 }
 
 @media (min-width: 640px) {
   .theme-fab {
-    right: max(1.5rem, calc((100vw - 48rem) / 2 + 1rem));
+    right: max(1.5rem, calc((100vw - 42rem) / 2 + 1rem));
   }
-}
-
-/* Fantasy: Crown on Steel Ring */
-[data-theme="fantasy"] .theme-fab {
-  background: #141720;
-  border: 2px solid #8da6c4;
-  box-shadow: 0 0 16px rgba(141, 166, 196, 0.4);
-  color: #8da6c4;
-}
-
-/* Elden: Lost Grace Golden Halo */
-[data-theme="elden"] .theme-fab {
-  background: #08080a;
-  border: 2px solid #e5c158;
-  box-shadow: 0 0 28px 6px rgba(229, 193, 88, 0.55);
-  color: #e5c158;
-}
-
-/* Cyber: Arcane Magic Summoning Circle */
-[data-theme="cyber"] .theme-fab {
-  background: radial-gradient(circle, #7e22ce 0%, #1e1b4b 60%, #060714 100%);
-  border: 1.5px solid #a855f7;
-  box-shadow: 0 0 25px rgba(168, 85, 247, 0.65), inset 0 0 10px #00f0ff;
-  color: #ffffff;
-}
-
-/* Pixel: Minecraft Spawn Egg / Emerald */
-[data-theme="pixel"] .theme-fab {
-  background: #476b32;
-  border: 3px solid;
-  border-color: #6da34d #283d1c #283d1c #6da34d;
-  box-shadow: 0 4px 0 #111111;
-  border-radius: 50%;
-  color: #ffe655;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -489,20 +292,20 @@ body {
 
 input, select, textarea {
   background: var(--bg-secondary);
-  border: var(--border-width) var(--border-style) var(--border-color);
+  border: 1px solid var(--border-color);
   border-radius: var(--border-radius-btn);
   color: var(--text-primary);
-  padding: 12px 16px;
-  font-size: 0.938rem;
-  font-family: var(--font-family);
+  padding: 10px 14px;
+  font-size: 0.875rem;
+  font-family: inherit;
   width: 100%;
-  min-height: 44px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  min-height: 42px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
   outline: none;
 }
 input:focus, select:focus, textarea:focus {
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  box-shadow: 0 0 0 2px var(--accent-glow);
 }
 input::placeholder { color: var(--text-muted); }
 
@@ -510,52 +313,56 @@ input::placeholder { color: var(--text-muted); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 12px 20px;
-  min-height: 44px;
+  gap: 7px;
+  padding: 10px 16px;
+  min-height: 42px;
   border-radius: var(--border-radius-btn);
-  font-weight: 600;
-  font-size: 0.938rem;
-  border: none;
+  font-weight: 500;
+  font-size: 0.875rem;
+  border: 1px solid transparent;
   cursor: pointer;
-  transition: all 0.2s;
-  font-family: var(--font-family);
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+  font-family: inherit;
 }
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent-dim), var(--accent-color));
+  background: var(--accent-color);
   color: #ffffff;
-}
-[data-theme="fantasy"] .btn-primary {
-  background: linear-gradient(135deg, #475a6f, #8da6c4);
-  color: #ffffff;
-}
-[data-theme="pixel"] .btn-primary {
-  background: #55ff55;
-  color: #000000;
-  border: 2px solid #222222;
 }
 [data-theme="elden"] .btn-primary {
-  background: linear-gradient(135deg, #a67c1e, #e5c158);
-  color: #0d0d10;
-  font-weight: 700;
+  color: #0a0a0c;
+  font-weight: 600;
 }
-.btn-primary:hover { opacity: 0.92; transform: translateY(-1px); }
-.btn-primary:active { transform: translateY(0); }
+[data-theme="pixel"] .btn-primary {
+  color: #000000;
+  font-weight: 600;
+}
+.btn-primary:hover { opacity: 0.92; }
+.btn-primary:active { opacity: 0.85; }
 
 .btn-ghost {
   background: transparent;
   color: var(--text-secondary);
-  border: var(--border-width) var(--border-style) var(--border-color);
+  border: 1px solid var(--border-color);
 }
-.btn-ghost:hover { border-color: var(--accent-color); color: var(--text-primary); }
+.btn-ghost:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
 
 .btn-danger {
-  background: linear-gradient(135deg, #b91c1c, #ef4444);
+  background: #dc2626;
   color: white;
 }
+.btn-danger:hover {
+  background: #b91c1c;
+}
+
 .btn-success {
-  background: linear-gradient(135deg, #047857, #10b981);
+  background: #059669;
   color: white;
+}
+.btn-success:hover {
+  background: #047857;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -565,9 +372,9 @@ input::placeholder { color: var(--text-muted); }
 .tab-bar {
   display: flex;
   background: var(--bg-secondary);
-  border-top: var(--border-width) var(--border-style) var(--border-color);
-  padding: 6px 0;
-  padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border-color);
+  padding: 4px 0;
+  padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
 }
 
 .tab-item {
@@ -576,30 +383,27 @@ input::placeholder { color: var(--text-muted); }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 6px 0;
-  min-height: 48px;
+  gap: 2px;
+  padding: 5px 0;
+  min-height: 46px;
   font-size: 0.688rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-muted);
   cursor: pointer;
-  transition: color 0.2s;
+  transition: color 0.15s ease;
   background: none;
   border: none;
-  font-family: var(--font-family);
+  font-family: inherit;
 }
-.tab-item.active { color: var(--accent-color); }
-
-/* Pixel Tab Item */
-[data-theme="pixel"] .tab-item {
-  font-size: 0.6rem;
+.tab-item.active {
+  color: var(--accent-color);
 }
 
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(5px);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
   z-index: 50;
   display: flex;
   align-items: flex-end;
@@ -609,27 +413,27 @@ input::placeholder { color: var(--text-muted); }
 .bottom-sheet {
   background: var(--bg-secondary);
   border-top: 1px solid var(--border-color);
-  border-top-left-radius: 24px;
-  border-top-right-radius: 24px;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
   width: 100%;
   max-width: 480px;
   max-height: 90dvh;
   overflow-y: auto;
-  padding: 24px 20px 32px;
-  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  padding: 20px 20px 28px;
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 [data-theme="pixel"] .bottom-sheet {
   border-radius: 0;
-  border-top: 4px solid #555555;
+  border-top: 2px solid var(--border-color);
 }
 
 .bottom-sheet .handle {
-  width: 40px;
+  width: 36px;
   height: 4px;
   background: var(--border-color);
-  border-radius: 4px;
-  margin: 0 auto 20px;
+  border-radius: 9999px;
+  margin: 0 auto 16px;
 }
 
 @media (min-width: 640px) {
@@ -648,13 +452,9 @@ input::placeholder { color: var(--text-muted); }
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
-  border-radius: 20px;
+  padding: 3px 8px;
+  border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 500;
-  font-family: var(--font-family);
-}
-[data-theme="pixel"] .chip {
-  border-radius: 3px;
-  font-size: 0.65rem;
+  font-family: inherit;
 }

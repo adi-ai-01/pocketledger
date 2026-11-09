@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export const THEMES = [
-  { id: 'fantasy', name: 'Fantasy', desc: 'Dark medieval, muted gold, Stark sigil', font: 'Cinzel' },
-  { id: 'elden', name: 'Elden', desc: 'Grace & runes, parchment, crossed swords', font: 'Cinzel' },
-  { id: 'cyber', name: 'Cyber', desc: 'Neon cyan/purple, S-Rank badge, arcane FAB', font: 'Rajdhani' },
-  { id: 'pixel', name: 'Pixel', desc: '8-bit stone GUI, XP bar, pixel heart & sword', font: 'Press Start 2P' },
+  { id: 'fantasy', name: 'Fantasy', desc: 'Cold slate & steel blue', font: 'Inter' },
+  { id: 'elden', name: 'Elden', desc: 'Obsidian & muted gold', font: 'Inter' },
+  { id: 'cyber', name: 'Cyber', desc: 'Deep navy & electric cyan', font: 'Inter' },
+  { id: 'pixel', name: 'Pixel', desc: 'Charcoal block & emerald', font: 'Inter' },
 ];
 
 const ThemeContext = createContext({

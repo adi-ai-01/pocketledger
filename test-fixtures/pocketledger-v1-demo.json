@@ -1,0 +1,122 @@
+{
+  "transactions": [
+    {
+      "id": "txn_v1_001",
+      "type": "give",
+      "amount": 1250,
+      "person": "Aarav Sharma",
+      "description": "Lunch at Bistro",
+      "category": "Food",
+      "date": "2026-10-01T13:30:00.000Z",
+      "createdAt": 1790861400000
+    },
+    {
+      "id": "txn_v1_002",
+      "type": "take",
+      "amount": 450,
+      "person": "Diya Patel",
+      "description": "Airport shuttle share",
+      "category": "Transport",
+      "date": "2026-10-05T09:15:00.000Z",
+      "createdAt": 1791191700000
+    },
+    {
+      "id": "txn_v1_003",
+      "type": "split",
+      "amount": 3000,
+      "description": "Team project celebration dinner",
+      "category": "Food",
+      "date": "2026-10-10T20:00:00.000Z",
+      "createdAt": 1791662400000,
+      "myShare": 1000,
+      "splits": [
+        {
+          "person": "Aarav Sharma",
+          "amount": 1000
+        },
+        {
+          "person": "Rohan Verma",
+          "amount": 1000
+        }
+      ]
+    },
+    {
+      "id": "txn_v1_004",
+      "type": "settle",
+      "amount": 450,
+      "person": "Diya Patel",
+      "description": "UPI settlement for shuttle share",
+      "category": "Settlement",
+      "date": "2026-10-14T17:45:00.000Z",
+      "createdAt": 1791999900000
+    },
+    {
+      "id": "txn_v1_005",
+      "type": "adjustment",
+      "amount": 200,
+      "person": "Rohan Verma",
+      "description": "Agreed upward adjustment for shared taxi",
+      "category": "Adjustment",
+      "date": "2026-10-18T11:00:00.000Z",
+      "createdAt": 1792321200000
+    },
+    {
+      "id": "txn_v1_006",
+      "type": "give",
+      "amount": 2200,
+      "person": "Ananya Iyer",
+      "description": "Stand-up comedy concert tickets",
+      "category": "Entertainment",
+      "date": "2026-10-24T18:30:00.000Z",
+      "createdAt": 1792866600000
+    }
+  ],
+  "people": [
+    {
+      "id": "person_01",
+      "name": "Aarav Sharma",
+      "upiId": "aarav.demo@okhdfcbank"
+    },
+    {
+      "id": "person_02",
+      "name": "Diya Patel",
+      "upiId": "diya.test@okaxis"
+    },
+    {
+      "id": "person_03",
+      "name": "Rohan Verma",
+      "upiId": "rohan.v@icici"
+    },
+    {
+      "id": "person_04",
+      "name": "Ananya Iyer",
+      "upiId": "ananya.iyer@paytm"
+    }
+  ],
+  "pendingAlarms": [
+    {
+      "id": "alarm_demo_01",
+      "txnId": "txn_v1_006",
+      "personName": "Ananya Iyer",
+      "amount": 2200,
+      "direction": "gave",
+      "createdAt": 1792866605000
+    }
+  ],
+  "categories": [
+    "Food",
+    "Transport",
+    "Shopping",
+    "Entertainment",
+    "Bills",
+    "Health",
+    "Education",
+    "Other"
+  ],
+  "settings": {
+    "currency": "₹",
+    "monthlyBudget": 25000,
+    "theme": "fantasy"
+  }
+}
+

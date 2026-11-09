@@ -36,8 +36,9 @@ export default function App() {
   const closeSheet = () => setSheet(null);
 
   // Theme-aware Tab Bar Icons
-  const renderTabIcon = (id, isActive) => {
+  const renderTabIcon = (rawId, isActive) => {
     const iconSize = 20;
+    const id = rawId === 'people' ? 'lendings' : rawId === 'activity' ? 'history' : rawId;
 
     if (theme === 'pixel') {
       const pixelIcons = {
@@ -112,9 +113,9 @@ export default function App() {
   };
 
   const tabs = [
-    { id: 'home', label: 'Home' },
-    { id: 'lendings', label: 'Lendings' },
-    { id: 'history', label: 'History' },
+    { id: 'home', label: 'Overview' },
+    { id: 'people', label: 'People' },
+    { id: 'history', label: 'Activity' },
     { id: 'settings', label: 'Settings' },
   ];
 
@@ -133,29 +134,33 @@ export default function App() {
       {/* Main content with smooth fade-in navigation (Step 1) */}
       <main className="flex-1 overflow-y-auto pb-24">
         <div key={tab} className="animate-fade-in transition-all duration-300">
-          {tab === 'home' && (
+          {(tab === 'home' || tab === 'overview') && (
             <HomeTab
               analytics={analytics}
               balances={balances}
               transactions={store.state.transactions}
               settings={store.state.settings}
               people={store.state.people}
+              store={store}
               onOpenSheet={openSheet}
+              onNavigateTab={setTab}
             />
           )}
-          {tab === 'lendings' && (
+          {(tab === 'people' || tab === 'lendings') && (
             <LendingsTab
               balances={balances}
               people={store.state.people}
               transactions={store.state.transactions}
               settings={store.state.settings}
+              store={store}
               onOpenSheet={openSheet}
               onAddPerson={store.addPerson}
               onUpdatePerson={store.updatePerson}
               onAddTransaction={store.addTransaction}
+              onNavigateTab={setTab}
             />
           )}
-          {tab === 'history' && (
+          {(tab === 'history' || tab === 'activity') && (
             <HistoryTab
               transactions={store.state.transactions}
               settings={store.state.settings}
@@ -232,7 +237,11 @@ export default function App() {
       {/* Tab bar */}
       <nav className="tab-bar fixed bottom-0 inset-x-0 z-30 transition-all duration-300">
         {tabs.map((t) => {
-          const isActive = tab === t.id;
+          const isActive =
+            tab === t.id ||
+            (t.id === 'home' && tab === 'overview') ||
+            (t.id === 'people' && tab === 'lendings') ||
+            (t.id === 'history' && tab === 'activity');
           return (
             <button
               key={t.id}

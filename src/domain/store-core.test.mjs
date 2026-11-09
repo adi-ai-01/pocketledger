@@ -766,4 +766,119 @@ describe('StoreCore Integration & Migration Engine', () => {
     // No ledger event was created
     assert.equal(store.getState().transactions.length, 1);
   });
+
+  // 22. Phase 5: Person Archival Enforces Zero-Balance Domain Invariant
+  test('22. Phase 5: Person archival enforces zero-balance domain rule and unarchive restores status', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    const p = store.addPerson('Divya', 'divya@okhdfcbank');
+    assert.equal(p.isArchived, false);
+
+    // Initial balance is 0: Archiving succeeds
+    const arch1 = store.archivePerson('Divya');
+    assert.equal(arch1.success, true);
+    assert.equal(store.getState().people.find((x) => x.name === 'Divya').isArchived, true);
+
+    // Unarchive
+    const unarch = store.unarchivePerson('Divya');
+    assert.equal(unarch.success, true);
+    assert.equal(store.getState().people.find((x) => x.name === 'Divya').isArchived, false);
+
+    // Give loan of ₹500 to Divya
+    store.addTransaction({
+      type: 'lend',
+      person: 'Divya',
+      amount: 500,
+      date: '2026-11-01',
+    });
+    assert.equal(store.computeBalances()['Divya'], 500);
+
+    // Attempting to archive while balance is active must be rejected
+    const blockedArch = store.archivePerson('Divya');
+    assert.equal(blockedArch.success, false);
+    assert.ok(blockedArch.error.includes('active balance'));
+    assert.equal(store.getState().people.find((x) => x.name === 'Divya').isArchived, false);
+
+    // Settle balance back to 0
+    store.addTransaction({
+      type: 'repayment',
+      person: 'Divya',
+      amount: 500,
+      date: '2026-11-02',
+    });
+    assert.equal(store.computeBalances()['Divya'], 0);
+
+    // Now archiving succeeds
+    const arch2 = store.archivePerson('Divya');
+    assert.equal(arch2.success, true);
+    assert.equal(store.getState().people.find((x) => x.name === 'Divya').isArchived, true);
+  });
+
+  // 23. Phase 5: Person Timeline Running Balance & Directory Last Activity
+  test('23. Phase 5: Person timeline derives running balance chronologically and directory aggregates activity', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Aditi', 'aditi@axis');
+
+    // Event 1: Lend ₹1,000 on 2026-11-01
+    store.addTransaction({
+      type: 'lend',
+      person: 'Aditi',
+      amount: 1000,
+      date: '2026-11-01',
+      description: 'First loan',
+    });
+
+    // Event 2: Aditi repays ₹400 on 2026-11-03
+    store.addTransaction({
+      type: 'repayment',
+      person: 'Aditi',
+      amount: 400,
+      date: '2026-11-03',
+      description: 'Partial return',
+    });
+
+    // Event 3: Lend another ₹500 on 2026-11-05
+    store.addTransaction({
+      type: 'lend',
+      person: 'Aditi',
+      amount: 500,
+      date: '2026-11-05',
+      description: 'Second loan',
+    });
+
+    const res = store.getPersonTimeline('Aditi');
+    assert.equal(res.currentBalanceRupees, 1100);
+    // Timeline is reversed for display (newest first)
+    assert.equal(res.timeline.length, 3);
+
+    // Newest: Second loan (running balance 1100)
+    assert.equal(res.timeline[0].description, 'Second loan');
+    assert.equal(res.timeline[0].deltaRupees, 500);
+    assert.equal(res.timeline[0].runningBalanceRupees, 1100);
+
+    // Middle: Partial return (running balance 600)
+    assert.equal(res.timeline[1].description, 'Partial return');
+    assert.equal(res.timeline[1].deltaRupees, -400);
+    assert.equal(res.timeline[1].runningBalanceRupees, 600);
+
+    // Oldest: First loan (running balance 1000)
+    assert.equal(res.timeline[2].description, 'First loan');
+    assert.equal(res.timeline[2].deltaRupees, 1000);
+    assert.equal(res.timeline[2].runningBalanceRupees, 1000);
+
+    // Directory check
+    const dir = store.getPeopleDirectory();
+    const aditiEntry = dir.find((x) => x.name === 'Aditi');
+    assert.ok(aditiEntry);
+    assert.equal(aditiEntry.balanceRupees, 1100);
+    assert.equal(aditiEntry.transactionCount, 3);
+    assert.equal(aditiEntry.lastActivityDate, '2026-11-05');
+
+    // Attention items check
+    const att = store.getAttentionItems();
+    assert.equal(typeof att.totalCount, 'number');
+  });
 });

@@ -17,6 +17,7 @@ import {
   validateEventMutation,
   createEqualSplitExpense,
   sortEventsChronologically,
+  computeEventBalanceDelta,
 } from './ledger.js';
 
 import {
@@ -562,6 +563,7 @@ export class StoreCore {
         id: p.id,
         name: p.name,
         upiId: p.upiId || '',
+        isArchived: !!p.isArchived,
       })),
       categories: this.state.categories || [],
       pendingAlarms: (this.state.pendingReviews?.migratedAlarms || []).map((a) => ({
@@ -1153,25 +1155,269 @@ export class StoreCore {
     return p;
   }
 
-  updatePerson(name, data) {
+  updatePerson(nameOrId, data) {
+    if (!nameOrId || !data) return { success: false, error: 'Person and update data are required' };
+    const query = String(nameOrId).trim().toLowerCase();
+
     if (!this.isV2()) {
-      const idx = this.state.people.findIndex((p) => p.name === name);
+      const idx = (this.state.people || []).findIndex(
+        (x) => (x.id && x.id.toLowerCase() === query) || (x.name && x.name.toLowerCase() === query)
+      );
       if (idx !== -1) {
+        const oldName = this.state.people[idx].name;
         this.state.people[idx] = { ...this.state.people[idx], ...data };
+        if (data.name && data.name.trim() !== oldName) {
+          for (const t of this.state.transactions || []) {
+            if (t.person === oldName) t.person = data.name.trim();
+          }
+        }
         this.saveCurrentState();
         this.notify();
+        return { success: true, person: this.state.people[idx] };
       }
-      return;
+      return { success: false, error: 'Person not found' };
     }
 
-    const p = this.state.people.find((x) => x.name === name);
-    if (p) {
-      if (data.name) p.name = data.name.trim();
-      if (data.upiId !== undefined) p.upiId = (data.upiId || '').trim();
-      p.updatedAt = Date.now();
-      this.saveCurrentState();
-      this.notify();
+    const p = (this.state.people || []).find(
+      (x) => (x.id && x.id.toLowerCase() === query) || (x.name && x.name.toLowerCase() === query)
+    );
+    if (!p) {
+      return { success: false, error: 'Person not found' };
     }
+
+    if (data.name && data.name.trim()) {
+      p.name = data.name.trim();
+    }
+    if (data.upiId !== undefined) {
+      const upi = (data.upiId || '').trim();
+      if (upi && !isValidUpiId(upi)) {
+        return { success: false, error: `Invalid UPI ID '${upi}'. Expected format username@bank (e.g. name@okhdfcbank)` };
+      }
+      p.upiId = upi;
+    }
+    p.updatedAt = Date.now();
+    this.saveCurrentState();
+    this.notify();
+    return { success: true, person: p };
+  }
+
+  archivePerson(nameOrId) {
+    if (!nameOrId) return { success: false, error: 'Person is required' };
+    const query = String(nameOrId).trim().toLowerCase();
+    const p = (this.state.people || []).find(
+      (x) => (x.id && x.id.toLowerCase() === query) || (x.name && x.name.toLowerCase() === query)
+    );
+    if (!p) return { success: false, error: 'Person not found' };
+
+    const balances = this.computeBalances();
+    const balance = balances[p.name] || 0;
+    if (Math.abs(balance) > 0.001) {
+      return {
+        success: false,
+        error: `Cannot archive ${p.name}: active balance is ${balance > 0 ? '+' : '-'}${Math.abs(balance).toFixed(2)}. Settle all balances first.`,
+      };
+    }
+
+    p.isArchived = true;
+    p.updatedAt = Date.now();
+    this.saveCurrentState();
+    this.notify();
+    return { success: true, person: p };
+  }
+
+  unarchivePerson(nameOrId) {
+    if (!nameOrId) return { success: false, error: 'Person is required' };
+    const query = String(nameOrId).trim().toLowerCase();
+    const p = (this.state.people || []).find(
+      (x) => (x.id && x.id.toLowerCase() === query) || (x.name && x.name.toLowerCase() === query)
+    );
+    if (!p) return { success: false, error: 'Person not found' };
+
+    p.isArchived = false;
+    p.updatedAt = Date.now();
+    this.saveCurrentState();
+    this.notify();
+    return { success: true, person: p };
+  }
+
+  getPersonTimeline(nameOrId) {
+    if (!nameOrId) return { person: null, currentBalanceRupees: 0, timeline: [] };
+    const query = String(nameOrId).trim().toLowerCase();
+
+    const p = (this.state.people || []).find(
+      (x) => (x.id && x.id.toLowerCase() === query) || (x.name && x.name.toLowerCase() === query)
+    );
+
+    const personId = p ? p.id : nameOrId;
+    const personName = p ? p.name : nameOrId;
+    const balances = this.computeBalances();
+    const currentBalanceRupees = balances[personName] || 0;
+
+    if (this.isV2()) {
+      const events = this.getCanonicalEvents();
+      const sorted = sortEventsChronologically(events);
+      let runningPaise = 0;
+      const timeline = [];
+
+      for (const event of sorted) {
+        const deltaPaise = computeEventBalanceDelta(event, personId);
+        const involves =
+          deltaPaise !== 0 ||
+          (event.kind === EVENT_KINDS.EXPENSE && (
+            event.payerId === personId ||
+            (Array.isArray(event.allocations) && event.allocations.some((a) => a.personId === personId))
+          )) ||
+          (event.kind === EVENT_KINDS.TRANSFER && (event.fromPartyId === personId || event.toPartyId === personId)) ||
+          (event.kind === EVENT_KINDS.REPAYMENT && (event.fromPartyId === personId || event.toPartyId === personId)) ||
+          (event.kind === EVENT_KINDS.ADJUSTMENT && (event.fromPartyId === personId || event.toPartyId === personId)) ||
+          (event.kind === EVENT_KINDS.LEGACY_UNCLASSIFIED && event.personId === personId);
+
+        if (involves) {
+          runningPaise += deltaPaise;
+          timeline.push({
+            id: event.id,
+            date: event.date,
+            createdAt: event.createdAt,
+            description: event.description,
+            category: event.category || 'Other',
+            paymentMethod: event.paymentMethod || 'OTHER',
+            kind: event.kind,
+            deltaPaise,
+            deltaRupees: deltaPaise / 100,
+            runningBalancePaise: runningPaise,
+            runningBalanceRupees: runningPaise / 100,
+            rawEvent: event,
+          });
+        }
+      }
+
+      return {
+        person: p || { id: personId, name: personName, upiId: '' },
+        currentBalanceRupees,
+        timeline: timeline.reverse(),
+      };
+    }
+
+    // Unmigrated legacy v1 path
+    const txns = this.state.transactions || [];
+    const sorted = [...txns].sort((a, b) => new Date(a.date) - new Date(b.date));
+    let runningRupees = 0;
+    const timeline = [];
+
+    for (const t of sorted) {
+      let delta = 0;
+      const isDirect = t.person && t.person.toLowerCase() === query;
+      const splitMatch = Array.isArray(t.splits) && t.splits.find((s) => s.person && s.person.toLowerCase() === query);
+
+      if (t.type === 'give' && isDirect) delta = t.amount;
+      else if (t.type === 'take' && isDirect) delta = -t.amount;
+      else if (t.type === 'split' && splitMatch) delta = splitMatch.amount;
+      else if (t.type === 'settle' && isDirect) {
+        if (runningRupees > 0) delta = -Math.min(t.amount, runningRupees);
+        else if (runningRupees < 0) delta = Math.min(t.amount, Math.abs(runningRupees));
+      } else if (t.type === 'adjustment' && isDirect) delta = t.amount;
+
+      if (isDirect || splitMatch) {
+        runningRupees += delta;
+        timeline.push({
+          id: t.id,
+          date: t.date ? t.date.slice(0, 10) : '2026-01-01',
+          createdAt: t.createdAt || 0,
+          description: t.description || t.type,
+          category: t.category || 'Other',
+          paymentMethod: t.paymentMethod || 'OTHER',
+          kind: t.type,
+          deltaRupees: delta,
+          runningBalanceRupees,
+          rawEvent: t,
+        });
+      }
+    }
+
+    return {
+      person: p || { id: personId, name: personName, upiId: '' },
+      currentBalanceRupees,
+      timeline: timeline.reverse(),
+    };
+  }
+
+  getPeopleDirectory() {
+    const balances = this.computeBalances();
+    const peopleList = this.state.people || [];
+    const txns = this.getLegacyProjectedTransactions();
+
+    const directory = [];
+    const seenNames = new Set();
+
+    for (const p of peopleList) {
+      const normName = p.name.trim().toLowerCase();
+      seenNames.add(normName);
+      const bal = balances[p.name] ?? 0;
+
+      const pHistory = txns.filter(
+        (t) =>
+          (t.person && t.person.toLowerCase() === normName) ||
+          (Array.isArray(t.splits) && t.splits.some((s) => s.person && s.person.toLowerCase() === normName))
+      );
+      const lastTxn = pHistory.sort((a, b) => new Date(b.date) - new Date(a.date))[0] || null;
+
+      directory.push({
+        id: p.id,
+        name: p.name,
+        upiId: p.upiId || '',
+        isArchived: !!p.isArchived,
+        balanceRupees: bal,
+        lastActivityDate: lastTxn ? lastTxn.date : null,
+        transactionCount: pHistory.length,
+      });
+    }
+
+    for (const [name, bal] of Object.entries(balances)) {
+      const normName = name.trim().toLowerCase();
+      if (!seenNames.has(normName)) {
+        seenNames.add(normName);
+        const pHistory = txns.filter(
+          (t) =>
+            (t.person && t.person.toLowerCase() === normName) ||
+            (Array.isArray(t.splits) && t.splits.some((s) => s.person && s.person.toLowerCase() === normName))
+        );
+        const lastTxn = pHistory.sort((a, b) => new Date(b.date) - new Date(a.date))[0] || null;
+
+        directory.push({
+          id: name,
+          name,
+          upiId: '',
+          isArchived: false,
+          balanceRupees: bal,
+          lastActivityDate: lastTxn ? lastTxn.date : null,
+          transactionCount: pHistory.length,
+        });
+      }
+    }
+
+    return directory;
+  }
+
+  getAttentionItems() {
+    const unresolvedPayments = this.getUnresolvedPaymentAttempts();
+    const pendingAlarms = this.state.pendingAlarms || [];
+    const migratedAlarms = (this.state.pendingReviews?.migratedAlarms || []).filter(
+      (a) => a.reviewStatus === 'PENDING_USER_REVIEW'
+    );
+    const unclassifiedEvents = (this.state.transactions || []).filter(
+      (t) => t.kind === EVENT_KINDS.LEGACY_UNCLASSIFIED && t.reviewRequired
+    );
+
+    const totalCount =
+      unresolvedPayments.length + pendingAlarms.length + migratedAlarms.length + unclassifiedEvents.length;
+
+    return {
+      unresolvedPayments,
+      pendingAlarms,
+      migratedAlarms,
+      unclassifiedEvents,
+      totalCount,
+    };
   }
 
   addPendingAlarm(alarm) {

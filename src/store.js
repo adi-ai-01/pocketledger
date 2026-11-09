@@ -95,6 +95,11 @@ export function useStore() {
   // ── People ──
   const addPerson = useCallback((name, upiId) => globalStoreCore.addPerson(name, upiId), []);
   const updatePerson = useCallback((name, data) => globalStoreCore.updatePerson(name, data), []);
+  const archivePerson = useCallback((nameOrId) => globalStoreCore.archivePerson(nameOrId), []);
+  const unarchivePerson = useCallback((nameOrId) => globalStoreCore.unarchivePerson(nameOrId), []);
+  const getPersonTimeline = useCallback((nameOrId) => globalStoreCore.getPersonTimeline(nameOrId), []);
+  const getPeopleDirectory = useCallback(() => globalStoreCore.getPeopleDirectory(), []);
+  const getAttentionItems = useCallback(() => globalStoreCore.getAttentionItems(), []);
 
   // ── Pending Alarms ──
   const addPendingAlarm = useCallback((alarm) => globalStoreCore.addPendingAlarm(alarm), []);
@@ -142,6 +147,11 @@ export function useStore() {
     deleteTransaction,
     addPerson,
     updatePerson,
+    archivePerson,
+    unarchivePerson,
+    getPersonTimeline,
+    getPeopleDirectory,
+    getAttentionItems,
     addPendingAlarm,
     removePendingAlarm,
     resolvePendingAlarm,

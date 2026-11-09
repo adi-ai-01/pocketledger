@@ -96,6 +96,7 @@ export function convertRupeesToPaise(rupees) {
 export function migrateV1ToV2(legacyState, options = {}) {
   const idGen = typeof options.idGenerator === 'function' ? options.idGenerator : defaultIdGenerator;
   const fallbackDate = typeof options.fallbackDate === 'string' ? options.fallbackDate : '2026-01-01';
+  const currentTimestamp = typeof options.now === 'number' && Number.isFinite(options.now) ? options.now : Date.now();
 
   const warnings = [];
   const validationErrors = [];
@@ -157,8 +158,8 @@ export function migrateV1ToV2(legacyState, options = {}) {
         name: rawName,
         upiId,
         isArchived: false,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
+        createdAt: currentTimestamp,
+        updatedAt: currentTimestamp,
       });
     } else {
       // Duplicate person record with same name
@@ -198,8 +199,8 @@ export function migrateV1ToV2(legacyState, options = {}) {
           name,
           upiId: '',
           isArchived: false,
-          createdAt: typeof txn.createdAt === 'number' ? txn.createdAt : Date.now(),
-          updatedAt: Date.now(),
+          createdAt: typeof txn.createdAt === 'number' ? txn.createdAt : currentTimestamp,
+          updatedAt: currentTimestamp,
         });
         warnings.push(`Created synthetic person record for '${name}' referenced in transactions`);
       }
@@ -218,7 +219,7 @@ export function migrateV1ToV2(legacyState, options = {}) {
 
     const eventId = typeof txn.id === 'string' && txn.id.trim() ? txn.id.trim() : idGen();
     const calendarDate = extractCalendarDate(txn.date, fallbackDate);
-    const createdAt = typeof txn.createdAt === 'number' && Number.isFinite(txn.createdAt) ? txn.createdAt : Date.now();
+    const createdAt = typeof txn.createdAt === 'number' && Number.isFinite(txn.createdAt) ? txn.createdAt : currentTimestamp;
     const description = typeof txn.description === 'string' ? txn.description : '';
     const category = typeof txn.category === 'string' ? txn.category : 'Other';
 
@@ -507,7 +508,7 @@ export function migrateV1ToV2(legacyState, options = {}) {
       personName,
       amountPaise: conv.isValid ? conv.amountPaise : 0,
       direction: alarm.direction === 'gave' ? 'gave' : 'settled',
-      createdAt: typeof alarm.createdAt === 'number' ? alarm.createdAt : Date.now(),
+      createdAt: typeof alarm.createdAt === 'number' ? alarm.createdAt : currentTimestamp,
       reviewStatus: 'PENDING_USER_REVIEW',
     };
 

@@ -162,6 +162,12 @@ export default function App() {
               onExportJSON={store.exportData}
               onExportCSV={store.exportCSV}
               onImport={store.importData}
+              migrationStatus={store.migrationStatus}
+              hasRollbackBackup={store.hasRollbackBackup}
+              onPreviewMigration={store.previewMigration}
+              onExecuteMigration={store.executeMigration}
+              onRollbackMigration={store.rollbackMigration}
+              onGetRawV1Backup={store.getRawV1Backup}
             />
           )}
         </div>

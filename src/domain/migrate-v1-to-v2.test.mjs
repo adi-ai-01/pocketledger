@@ -345,8 +345,9 @@ describe('PocketLedger Legacy Data Migration Engine (v1 -> v2)', () => {
     let counterB = 0;
     const genB = () => `id_${++counterB}`;
 
-    const resA = migrateV1ToV2(legacyState, { idGenerator: genA });
-    const resB = migrateV1ToV2(legacyState, { idGenerator: genB });
+    const fixedNow = 1794200000000;
+    const resA = migrateV1ToV2(legacyState, { idGenerator: genA, now: fixedNow });
+    const resB = migrateV1ToV2(legacyState, { idGenerator: genB, now: fixedNow });
 
     assert.deepEqual(resA.migratedState, resB.migratedState);
   });

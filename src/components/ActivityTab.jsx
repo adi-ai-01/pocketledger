@@ -202,7 +202,7 @@ export default function ActivityTab({
   return (
     <div className="animate-fade-in pb-16">
       {/* ── Screen Header ── */}
-      <header className="px-5 pt-6 pb-3">
+      <header className="px-2 sm:px-0 pt-5 pb-3">
         <h1 className="text-xl font-bold tracking-tight text-text-primary">Activity</h1>
         <p className="text-xs text-text-muted mt-0.5">
           {allTxns.length} ledger {allTxns.length === 1 ? 'event' : 'events'} recorded
@@ -241,7 +241,7 @@ export default function ActivityTab({
       {activeView === 'LEDGER' ? (
         <>
           {/* ── Search & Filter Controls ── */}
-          <div className="px-5 space-y-2.5 mb-4">
+          <div className="px-2 sm:px-0 space-y-2.5 mb-4">
             {/* Search Input */}
             <div className="relative">
               <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
@@ -307,7 +307,7 @@ export default function ActivityTab({
           </div>
 
           {/* ── Grouped Activity List ── */}
-          <div className="px-5 space-y-5">
+          <div className="px-2 sm:px-0 space-y-5">
             {groupedTxns.length === 0 ? (
               <div className="theme-card p-8 text-center space-y-2">
                 <Clock size={32} className="text-text-muted mx-auto opacity-40" />
@@ -452,11 +452,11 @@ export default function ActivityTab({
 
                           {/* Amount Column */}
                           <div className="text-right flex-shrink-0">
-                            <div className={`text-xs font-bold ${amountColor}`}>
+                            <div className={`text-xs font-bold ${amountColor} tabular-nums`}>
                               {amountSign}{currency}{(isSE ? userShareAmt : totalAmt).toLocaleString('en-IN')}
                             </div>
                             {isSE && totalAmt !== userShareAmt && (
-                              <p className="text-[9px] text-text-muted">
+                              <p className="text-[9px] text-text-muted tabular-nums">
                                 Bill: {currency}{totalAmt.toLocaleString('en-IN')}
                               </p>
                             )}
@@ -472,7 +472,7 @@ export default function ActivityTab({
         </>
       ) : (
         /* ── Payment Attempts Subview ── */
-        <div className="px-5 space-y-4">
+        <div className="px-2 sm:px-0 space-y-4">
           <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300 space-y-1">
             <p className="font-semibold flex items-center gap-1.5 text-blue-400">
               <ShieldCheck size={14} /> External Payment Intent Log
@@ -603,3 +603,4 @@ export default function ActivityTab({
     </div>
   );
 }
+

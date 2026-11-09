@@ -15,7 +15,7 @@ export default function UnresolvedAttemptsBanner({ attempts = [], onReconcile, o
   };
 
   return (
-    <div className="mx-5 mb-4 animate-fade-in space-y-2">
+    <div className="px-2 sm:px-0 mt-3 mb-2 animate-fade-in space-y-2">
       {attempts.map((att) => {
         const isExpanded = selectedAttempt === att.id;
         return (

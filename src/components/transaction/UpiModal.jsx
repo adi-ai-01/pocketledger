@@ -125,7 +125,7 @@ export default function UpiModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-surface-2 border border-[var(--border-color)] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
+      <div className="bg-card border border-[var(--border-color)] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

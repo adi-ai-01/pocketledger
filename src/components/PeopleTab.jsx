@@ -155,7 +155,7 @@ export default function PeopleTab({
   return (
     <div className="animate-fade-in pb-16">
       {/* ── Screen Header ── */}
-      <header className="px-5 pt-6 pb-3 flex items-center justify-between">
+      <header className="px-2 sm:px-0 pt-5 pb-3 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-text-primary">People</h1>
           <p className="text-xs text-text-muted mt-0.5">
@@ -173,7 +173,7 @@ export default function PeopleTab({
       </header>
 
       {/* ── Search Bar ── */}
-      <div className="px-5 mb-3">
+      <div className="px-2 sm:px-0 mb-3">
         <div className="relative">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
           <input
@@ -195,7 +195,7 @@ export default function PeopleTab({
       </div>
 
       {/* ── Filter Pills Bar ── */}
-      <div className="px-5 mb-4">
+      <div className="px-2 sm:px-0 mb-4">
         <div className="flex items-center justify-between gap-1 overflow-x-auto no-scrollbar pb-1">
           <div className="flex items-center gap-1.5">
             {[
@@ -247,7 +247,7 @@ export default function PeopleTab({
       </div>
 
       {/* ── People Directory List ── */}
-      <div className="px-5 space-y-2">
+      <div className="px-2 sm:px-0 space-y-2">
         {filteredPeople.length === 0 ? (
           <div className="theme-card p-8 text-center space-y-3">
             <Users size={32} className="text-text-muted mx-auto opacity-40" />
@@ -336,7 +336,7 @@ export default function PeopleTab({
 
                 {/* Balance & Direction Badge */}
                 <div className="text-right flex-shrink-0">
-                  <div className={`text-sm font-bold ${
+                  <div className={`text-sm font-bold tabular-nums ${
                     isZero
                       ? 'text-text-muted'
                       : isOwed
@@ -360,7 +360,7 @@ export default function PeopleTab({
       {/* ── Add Person Modal ── */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-surface-2 border border-[var(--border-color)] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
+          <div className="bg-card border border-[var(--border-color)] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-text-primary">Add New Person</h3>
               <button

@@ -80,7 +80,8 @@ export default function TransactionSheet({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-3 transition-colors"
+            className="p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-secondary transition-colors"
+            aria-label="Close"
           >
             <X size={18} />
           </button>

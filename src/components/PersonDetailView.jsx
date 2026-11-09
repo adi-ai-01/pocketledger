@@ -185,7 +185,7 @@ export default function PersonDetailView({
               : `You owe ${person.name}`}
           </span>
           <div className="flex items-center justify-center gap-1.5">
-            <span className={`text-3xl font-extrabold tracking-tight ${
+            <span className={`text-3xl font-extrabold tracking-tight tabular-nums ${
               isSettled
                 ? 'text-text-muted'
                 : isOwedToUser
@@ -409,7 +409,7 @@ export default function PersonDetailView({
       {/* Edit Person Modal */}
       {showEditModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-surface-2 border border-[var(--border-color)] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
+          <div className="bg-card border border-[var(--border-color)] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
             <h3 className="text-base font-bold text-text-primary">Edit Person Details</h3>
             <form onSubmit={handleSaveEdit} className="space-y-3">
               <div>

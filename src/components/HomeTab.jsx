@@ -12,6 +12,8 @@ import {
   Clock,
   Sparkles,
   CreditCard,
+  Scissors,
+  CheckCircle2,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext.jsx';
 import {
@@ -71,7 +73,7 @@ export default function HomeTab({
   return (
     <div className="animate-fade-in transition-all duration-300 pb-12">
       {/* ── A. Header with Theme-Aware Branding & Iconography ── */}
-      <header className="px-5 pt-6 pb-4 flex items-center justify-between">
+      <header className="px-2 sm:px-0 pt-5 pb-3 flex items-center justify-between">
         <div>
           <p className="text-text-secondary text-xs uppercase tracking-wider font-semibold">
             {MONTHS[now.getMonth()]} {now.getFullYear()}
@@ -83,7 +85,7 @@ export default function HomeTab({
                 : theme === 'pixel'
                 ? 'text-white drop-shadow-[2px_2px_0px_#000]'
                 : theme === 'elden'
-                ? 'text-[#f3ead3] drop-shadow-[0_0_8px_rgba(229,193,88,0.4)]'
+                ? 'text-[#f5eedc] drop-shadow-[0_0_8px_rgba(229,193,88,0.4)]'
                 : 'text-text-primary'
             }`}
           >
@@ -93,7 +95,7 @@ export default function HomeTab({
 
         {/* Right Header Element based on Active Theme */}
         <div>
-          {theme === 'fantasy' && <StarkSigil className="w-9 h-9 text-[#8f8776] hover:text-[#c5a059] transition-colors" />}
+          {theme === 'fantasy' && <StarkSigil className="w-9 h-9 text-[#8da6c4] hover:text-[#b4c7dc] transition-colors" />}
           {theme === 'elden' && <EldenRuneSeal className="w-10 h-10 text-[#e5c158] drop-shadow-[0_0_10px_rgba(229,193,88,0.6)]" />}
           {theme === 'cyber' && <SRankBadge />}
           {theme === 'pixel' && (
@@ -115,7 +117,7 @@ export default function HomeTab({
 
       {/* ── D. Attention Items Section (Unresolved UPI / Pending Reviews) ── */}
       {totalAttentionCount > 0 && (
-        <div className="px-5 mb-4">
+        <div className="px-2 sm:px-0 mb-4">
           <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-3 animate-fade-in">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0">
@@ -146,7 +148,7 @@ export default function HomeTab({
       )}
 
       {/* ── B. Net Peer Balance Card ── */}
-      <div className="mx-5 mb-4 theme-card p-5 space-y-4">
+      <div className="mb-4 theme-card p-4 sm:p-5 space-y-4">
         {/* Section Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -170,7 +172,7 @@ export default function HomeTab({
         <div>
           <div className="flex items-baseline gap-2">
             <span
-              className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${
+              className={`text-3xl sm:text-4xl font-extrabold tracking-tight tabular-nums ${
                 netPeerBalance > 0.001
                   ? 'text-emerald-400'
                   : netPeerBalance < -0.001
@@ -212,7 +214,7 @@ export default function HomeTab({
               <TrendingUp size={13} style={{ color: 'var(--owed-green-text)' }} />
             </div>
             <span
-              className="text-lg sm:text-xl font-bold"
+              className="text-lg sm:text-xl font-bold tabular-nums"
               style={{ color: 'var(--owed-green-text)' }}
             >
               +{currency}{totalOwedToMe.toLocaleString('en-IN')}
@@ -235,7 +237,7 @@ export default function HomeTab({
               <TrendingDown size={13} style={{ color: 'var(--owed-red-text)' }} />
             </div>
             <span
-              className="text-lg sm:text-xl font-bold"
+              className="text-lg sm:text-xl font-bold tabular-nums"
               style={{ color: 'var(--owed-red-text)' }}
             >
               -{currency}{totalIOwe.toLocaleString('en-IN')}
@@ -246,7 +248,7 @@ export default function HomeTab({
       </div>
 
       {/* ── C. Monthly Spending Card (Personal Consumption Only) ── */}
-      <div className="mx-5 mb-5 theme-card p-5 space-y-3.5">
+      <div className="mb-4 theme-card p-4 sm:p-5 space-y-3.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Wallet size={16} className="text-accent" />
@@ -264,13 +266,13 @@ export default function HomeTab({
         <div>
           <div className="flex items-baseline gap-2">
             <span
-              className={`text-3xl font-extrabold tracking-tight ${
+              className={`text-3xl font-extrabold tracking-tight tabular-nums ${
                 theme === 'pixel'
                   ? 'text-[#ffaa00]'
                   : theme === 'elden'
                   ? 'text-[#e5c158]'
                   : theme === 'fantasy'
-                  ? 'text-[#c5a059]'
+                  ? 'text-[#8da6c4]'
                   : 'text-text-primary'
               }`}
             >
@@ -314,9 +316,9 @@ export default function HomeTab({
                 />
               </div>
             ) : (
-              <div className="w-full h-2 bg-[#1e1e28] rounded-full overflow-hidden border border-[#3d372e]">
+              <div className="w-full h-2 bg-[#1e1e28] rounded-full overflow-hidden border border-[#2b3342]">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#8c6f33] to-[#c5a059] transition-all duration-700"
+                  className="h-full rounded-full bg-gradient-to-r from-[#54687d] to-[#8da6c4] transition-all duration-700"
                   style={{ width: `${budgetPct}%` }}
                 />
               </div>
@@ -338,7 +340,7 @@ export default function HomeTab({
       </div>
 
       {/* ── E. Recent Activity Section ── */}
-      <div className="px-5 mb-4 space-y-3">
+      <div className="px-2 sm:px-0 mb-4 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider">
             Recent Activity
@@ -412,18 +414,87 @@ export default function HomeTab({
         ) : (
           <div className="space-y-2">
             {recentTxns.map((txn) => {
-              const isGive = txn.type === 'give' || txn.type === 'split';
-              const Icon = isGive ? ArrowUpRight : ArrowDownLeft;
-              const color = isGive ? 'text-rose-400' : 'text-emerald-400';
-              const bgColor = isGive ? 'bg-rose-500/15' : 'bg-emerald-500/15';
-              const sign = isGive ? '-' : '+';
-              const displayAmt = txn.type === 'split' ? (txn.myShare || txn.amount) : txn.amount;
+              const isPE = txn.action === 'personal_expense' || (!txn.action && txn.type === 'give' && !txn.person);
+              const isSE = txn.action === 'shared_expense' || txn.type === 'split';
+              const isL = txn.action === 'lend' || (txn.type === 'give' && txn.person);
+              const isB = txn.action === 'borrow' || (txn.type === 'take' && txn.person);
+              const isR = txn.action === 'repayment' || txn.type === 'settle';
+              const isAdj = txn.action === 'adjustment' || txn.type === 'adjustment';
+
+              let title = txn.description || 'Transaction';
+              let subtitle = '';
+              let Icon = ArrowUpRight;
+              let color = 'text-text-primary';
+              let bgColor = 'bg-secondary/80 border border-[var(--border-color)] text-text-muted';
+              let sign = '';
+              let displayAmt = txn.amount;
+
+              if (isPE) {
+                title = txn.description || 'Personal Expense';
+                subtitle = txn.category ? `${txn.category} · Personal` : 'Personal Expense';
+                Icon = CreditCard;
+                color = 'text-text-primary';
+                bgColor = 'bg-secondary border border-[var(--border-color)] text-text-muted';
+                sign = '-';
+              } else if (isSE) {
+                title = txn.description || 'Shared Expense';
+                subtitle = `Shared bill · Your share`;
+                Icon = Scissors;
+                color = 'text-accent';
+                bgColor = 'bg-accent/15 border border-accent/30 text-accent';
+                displayAmt = txn.myShare || txn.userShare || txn.amount;
+                sign = '-';
+              } else if (isL) {
+                title = `You lent ${txn.person || 'someone'}`;
+                subtitle = 'Loan to peer · Receivable';
+                Icon = ArrowUpRight;
+                color = 'text-emerald-400';
+                bgColor = 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400';
+                sign = '+';
+              } else if (isB) {
+                title = `You borrowed from ${txn.person || 'someone'}`;
+                subtitle = 'Loan from peer · Payable';
+                Icon = ArrowDownLeft;
+                color = 'text-rose-400';
+                bgColor = 'bg-rose-500/15 border border-rose-500/30 text-rose-400';
+                sign = '-';
+              } else if (isR) {
+                if (txn.direction === 'inflow') {
+                  title = `${txn.person || 'Peer'} paid you back`;
+                  subtitle = 'Repayment received';
+                  Icon = CheckCircle2;
+                  color = 'text-emerald-400';
+                  bgColor = 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400';
+                  sign = '-';
+                } else {
+                  title = `You paid back ${txn.person || 'Peer'}`;
+                  subtitle = 'Repayment sent';
+                  Icon = CheckCircle2;
+                  color = 'text-rose-400';
+                  bgColor = 'bg-rose-500/15 border border-rose-500/30 text-rose-400';
+                  sign = '+';
+                }
+              } else if (isAdj) {
+                title = `Adjustment: ${txn.person || ''}`;
+                subtitle = txn.description || 'Balance correction';
+                Icon = AlertTriangle;
+                color = 'text-amber-400';
+                bgColor = 'bg-amber-500/15 border border-amber-500/30 text-amber-400';
+                sign = txn.amount >= 0 ? '+' : '';
+              } else {
+                title = txn.description || txn.type;
+                subtitle = txn.person ? `${txn.person} · Historical` : 'Historical entry';
+                Icon = AlertTriangle;
+                color = 'text-neutral-400';
+                bgColor = 'bg-neutral-500/15 border border-neutral-500/30 text-neutral-400';
+              }
+
               const d = new Date(txn.date);
 
               return (
                 <div
                   key={txn.id}
-                  onClick={() => onOpenSheet(txn.type, txn)}
+                  onClick={() => onOpenSheet(txn.action || txn.type, txn)}
                   className="theme-card p-3.5 flex items-center gap-3.5 cursor-pointer hover:border-accent/40 active:scale-[0.99] transition-all"
                 >
                   <div className={`w-9 h-9 rounded-xl ${bgColor} flex items-center justify-center flex-shrink-0`}>
@@ -431,15 +502,13 @@ export default function HomeTab({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-text-primary truncate">
-                      {txn.description || txn.person || 'Transaction'}
+                      {title}
                     </p>
                     <p className="text-[11px] text-text-muted truncate">
-                      {txn.person ? `${txn.person} · ` : ''}
-                      {d.getDate()} {MONTHS[d.getMonth()]}
-                      {txn.category ? ` · ${txn.category}` : ''}
+                      {d.getDate()} {MONTHS[d.getMonth()]} · {subtitle}
                     </p>
                   </div>
-                  <span className={`text-xs font-bold ${color} whitespace-nowrap`}>
+                  <span className={`text-xs font-bold ${color} whitespace-nowrap tabular-nums`}>
                     {sign}{currency}{displayAmt.toLocaleString('en-IN')}
                   </span>
                 </div>

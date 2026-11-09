@@ -65,10 +65,10 @@ export default function SettingsTab({
   );
 
   const themeBadges = {
-    fantasy: { colors: ['#121216', '#c5a059', '#152e22', '#3e181c'], icon: '🐺' },
-    elden: { colors: ['#08080a', '#e5c158', '#e4d7be', '#5c4c23'], icon: '✨' },
-    cyber: { colors: ['#060714', '#00f0ff', '#a855f7', '#f43f5e'], icon: '⚡' },
-    pixel: { colors: ['#1e1e1e', '#55ff55', '#4a3319', '#ffaa00'], icon: '⛏️' },
+    fantasy: { colors: ['#0f1115', '#8da6c4', '#10261e', '#2d141b'], icon: '🐺' },
+    elden: { colors: ['#08080a', '#e5c158', '#13241b', '#28161b'], icon: '✨' },
+    cyber: { colors: ['#060714', '#00f0ff', '#0c232c', '#281126'], icon: '⚡' },
+    pixel: { colors: ['#1e1e1e', '#55ff55', '#1f3622', '#3d1c1c'], icon: '⛏️' },
   };
 
   // ── Handlers: Preferences ──
@@ -240,12 +240,12 @@ export default function SettingsTab({
 
   return (
     <div className="animate-fade-in transition-all duration-300 pb-16">
-      <header className="px-5 pt-6 pb-4">
+      <header className="px-2 sm:px-0 pt-5 pb-4">
         <h1 className="text-xl font-bold tracking-tight text-text-primary">Settings</h1>
         <p className="text-xs text-text-muted mt-0.5">Preferences, backups, and migration recovery</p>
       </header>
 
-      <div className="px-5 space-y-4">
+      <div className="px-2 sm:px-0 space-y-4">
         {/* ── SECTION 1: PREFERENCES ── */}
         <div className="theme-card p-5 space-y-4">
           <div className="flex items-center gap-2">
@@ -607,7 +607,7 @@ export default function SettingsTab({
       {/* ── Import Confirmation & Preview Modal ── */}
       {showImportConfirm && importPreview && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-surface-2 border border-[var(--border-color)] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
+          <div className="bg-card border border-[var(--border-color)] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-text-primary">Confirm Ledger Import</h3>
               <button

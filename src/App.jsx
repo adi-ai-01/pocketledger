@@ -122,18 +122,23 @@ export default function App() {
   return (
     <div className="flex flex-col min-h-dvh bg-primary text-primary transition-all duration-300">
       {/* Pending alarms banner */}
-      <PendingBanner alarms={store.state.pendingAlarms} onResolve={store.resolvePendingAlarm} />
+      <div className="max-w-3xl mx-auto w-full">
+        <PendingBanner alarms={store.state.pendingAlarms} onResolve={store.resolvePendingAlarm} />
+      </div>
 
       {/* Unresolved UPI payment attempts banner */}
-      <UnresolvedAttemptsBanner
-        attempts={store.getUnresolvedPaymentAttempts ? store.getUnresolvedPaymentAttempts() : []}
-        onReconcile={(id, data) => store.reconcilePaymentAttempt(id, data)}
-        onDismiss={(id) => store.dismissPaymentAttempt(id)}
-      />
+      <div className="max-w-3xl mx-auto w-full">
+        <UnresolvedAttemptsBanner
+          attempts={store.getUnresolvedPaymentAttempts ? store.getUnresolvedPaymentAttempts() : []}
+          onReconcile={(id, data) => store.reconcilePaymentAttempt(id, data)}
+          onDismiss={(id) => store.dismissPaymentAttempt(id)}
+        />
+      </div>
 
-      {/* Main content with smooth fade-in navigation (Step 1) */}
-      <main className="flex-1 overflow-y-auto pb-24">
-        <div key={tab} className="animate-fade-in transition-all duration-300">
+      {/* Main content with smooth fade-in navigation & responsive desktop centering */}
+      <main className="flex-1 overflow-y-auto pb-28">
+        <div className="max-w-3xl mx-auto w-full px-2 sm:px-4">
+          <div key={tab} className="animate-fade-in transition-all duration-300">
           {(tab === 'home' || tab === 'overview') && (
             <HomeTab
               analytics={analytics}
@@ -187,6 +192,7 @@ export default function App() {
               store={store}
             />
           )}
+          </div>
         </div>
       </main>
 
@@ -200,10 +206,10 @@ export default function App() {
           {theme === 'fantasy' && (
             <>
               {/* Crown on top of FAB button */}
-              <span className="absolute -top-3 text-sm text-[#e5c158] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+              <span className="absolute -top-3 text-sm text-[#8da6c4] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                 👑
               </span>
-              <Plus size={24} className="text-[#c5a059]" strokeWidth={2.5} />
+              <Plus size={24} className="text-[#8da6c4]" strokeWidth={2.5} />
             </>
           )}
 
@@ -238,25 +244,28 @@ export default function App() {
         </button>
       )}
 
-      {/* Tab bar */}
+      {/* Tab bar with centered desktop layout */}
       <nav className="tab-bar fixed bottom-0 inset-x-0 z-30 transition-all duration-300">
-        {tabs.map((t) => {
-          const isActive =
-            tab === t.id ||
-            (t.id === 'home' && tab === 'overview') ||
-            (t.id === 'people' && tab === 'lendings') ||
-            (t.id === 'history' && tab === 'activity');
-          return (
-            <button
-              key={t.id}
-              className={`tab-item ${isActive ? 'active' : ''}`}
-              onClick={() => setTab(t.id)}
-            >
-              {renderTabIcon(t.id, isActive)}
-              <span className="mt-0.5">{t.label}</span>
-            </button>
-          );
-        })}
+        <div className="max-w-md mx-auto w-full flex items-center justify-around px-2">
+          {tabs.map((t) => {
+            const isActive =
+              tab === t.id ||
+              (t.id === 'home' && tab === 'overview') ||
+              (t.id === 'people' && tab === 'lendings') ||
+              (t.id === 'history' && tab === 'activity');
+            return (
+              <button
+                key={t.id}
+                className={`tab-item ${isActive ? 'active' : ''}`}
+                onClick={() => setTab(t.id)}
+                aria-label={t.label}
+              >
+                {renderTabIcon(t.id, isActive)}
+                <span className="mt-0.5">{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </nav>
 
       {/* Transaction bottom sheet */}

@@ -71,7 +71,7 @@ export default function TransactionDetailModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-surface-2 border border-[var(--border-color)] rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-card border border-[var(--border-color)] rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5">
@@ -135,12 +135,12 @@ export default function TransactionDetailModal({
           <span className="text-[11px] text-text-muted uppercase tracking-wider font-semibold">
             {isSharedExpense ? 'Your Share / Consumption' : 'Amount'}
           </span>
-          <div className="text-3xl font-extrabold text-text-primary">
+          <div className="text-3xl font-extrabold text-text-primary tabular-nums">
             {currency}{(isSharedExpense ? userShare : totalAmount).toLocaleString('en-IN')}
           </div>
           {isSharedExpense && (
             <p className="text-xs text-text-muted">
-              Total bill paid to merchant: <strong className="text-text-primary">{currency}{totalAmount.toLocaleString('en-IN')}</strong>
+              Total bill paid to merchant: <strong className="text-text-primary tabular-nums">{currency}{totalAmount.toLocaleString('en-IN')}</strong>
             </p>
           )}
         </div>
@@ -304,3 +304,4 @@ export default function TransactionDetailModal({
     </div>
   );
 }
+

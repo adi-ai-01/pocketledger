@@ -164,6 +164,9 @@ export default function App() {
             <HistoryTab
               transactions={store.state.transactions}
               settings={store.state.settings}
+              people={store.state.people}
+              store={store}
+              onOpenSheet={openSheet}
               onEdit={(txn) => openSheet(txn.type, txn)}
               onDelete={store.deleteTransaction}
             />
@@ -181,6 +184,7 @@ export default function App() {
               onExecuteMigration={store.executeMigration}
               onRollbackMigration={store.rollbackMigration}
               onGetRawV1Backup={store.getRawV1Backup}
+              store={store}
             />
           )}
         </div>

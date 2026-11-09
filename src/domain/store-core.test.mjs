@@ -881,4 +881,81 @@ describe('StoreCore Integration & Migration Engine', () => {
     const att = store.getAttentionItems();
     assert.equal(typeof att.totalCount, 'number');
   });
+
+  // 24. Phase 6: Safe Import Validation, Preview, and Safety Backup Verification
+  test('24. Phase 6: Safe import preview validates structure, creates pre-import safety backup, and supports rollback', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    // Populate current active ledger with 1 transaction
+    store.addPerson('Kavya');
+    store.addTransaction({
+      type: 'personal_expense',
+      amount: 250,
+      description: 'Books',
+      category: 'Education',
+      date: '2026-11-01',
+    });
+    assert.equal(store.getState().transactions.length, 1);
+
+    // Case A: Invalid JSON string is rejected with clear error
+    const badRes = store.previewImport('{ not valid json');
+    assert.equal(badRes.isValid, false);
+    assert.ok(badRes.error.includes('JSON Parse Error'));
+
+    // Case B: Valid v2 JSON preview counts records and flags warnings if any
+    const validV2Json = JSON.stringify({
+      schemaVersion: 2,
+      transactions: [
+        {
+          id: 't-101',
+          kind: 'EXPENSE',
+          payerId: 'USER',
+          totalAmountPaise: 50000,
+          userSharePaise: 50000,
+          allocations: [],
+          date: '2026-11-02',
+          createdAt: Date.now(),
+        },
+      ],
+      people: [{ id: 'p-1', name: 'Rohan', upiId: '' }],
+    });
+
+    const preview = store.previewImport(validV2Json);
+    assert.equal(preview.isValid, true);
+    assert.equal(preview.preview.schemaVersion, 2);
+    assert.equal(preview.preview.transactionCount, 1);
+    assert.equal(preview.preview.peopleCount, 1);
+    assert.equal(preview.preview.warnings.length, 0);
+
+    // Case C: Executing import creates safety backup and updates active state
+    assert.equal(store.hasPreImportBackup(), false);
+    const impRes = store.importData(validV2Json);
+    assert.equal(impRes.success, true);
+    assert.equal(store.hasPreImportBackup(), true);
+    assert.equal(store.getState().transactions.length, 1);
+    assert.equal(store.getState().people[0].name, 'Rohan');
+
+    // Case D: Rollback restores pre-import active ledger (Books transaction)
+    const rollRes = store.rollbackPreImport();
+    assert.equal(rollRes.success, true);
+    assert.equal(store.getState().transactions.length, 1);
+    assert.equal(store.getState().transactions[0].description, 'Books');
+
+    // Case E: Mark legacy unclassified event as reviewed
+    store.state.transactions.push({
+      id: 'legacy-unclass-1',
+      kind: 'LEGACY_UNCLASSIFIED',
+      legacyType: 'give',
+      personId: 'p-kavya',
+      amountPaise: 10000,
+      date: '2026-10-01',
+      createdAt: Date.now(),
+      reviewRequired: true,
+    });
+    const revRes = store.markTransactionReviewed('legacy-unclass-1');
+    assert.equal(revRes.success, true);
+    const updatedEvt = store.state.transactions.find((t) => t.id === 'legacy-unclass-1');
+    assert.equal(updatedEvt.reviewRequired, false);
+  });
 });

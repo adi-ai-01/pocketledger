@@ -112,7 +112,12 @@ export function useStore() {
   // ── Backup / Restore ──
   const exportData = useCallback(() => globalStoreCore.exportData(), []);
   const importData = useCallback((jsonStr) => globalStoreCore.importData(jsonStr), []);
+  const previewImport = useCallback((jsonStr) => globalStoreCore.previewImport(jsonStr), []);
+  const hasPreImportBackup = useCallback(() => globalStoreCore.hasPreImportBackup(), []);
+  const getPreImportBackup = useCallback(() => globalStoreCore.getPreImportBackup(), []);
+  const rollbackPreImport = useCallback(() => globalStoreCore.rollbackPreImport(), []);
   const exportCSV = useCallback(() => globalStoreCore.exportCSV(), []);
+  const markTransactionReviewed = useCallback((id) => globalStoreCore.markTransactionReviewed(id), []);
 
   // ── Controlled Migration ──
   const previewMigration = useCallback(() => globalStoreCore.previewMigration(), []);
@@ -158,6 +163,11 @@ export function useStore() {
     updateSettings,
     exportData,
     importData,
+    previewImport,
+    hasPreImportBackup,
+    getPreImportBackup,
+    rollbackPreImport,
+    markTransactionReviewed,
     exportCSV,
   };
 }

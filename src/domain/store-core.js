@@ -426,9 +426,12 @@ export class StoreCore {
             description: e.description,
             category: e.category || 'Other',
             paymentMethod: e.paymentMethod || 'OTHER',
+            paymentAttemptId: e.metadata?.paymentAttemptId || null,
+            reviewRequired: !!e.reviewRequired,
             date: calendarDate,
             createdAt: e.createdAt,
             rawKind: e.kind,
+            rawEvent: e,
           });
         } else if (e.payerId !== PARTY_USER) {
           const payerDisplayName = idToName.get(e.payerId) || e.payerId;
@@ -456,9 +459,12 @@ export class StoreCore {
             description: e.description,
             category: e.category || 'Other',
             paymentMethod: e.paymentMethod || 'OTHER',
+            paymentAttemptId: e.metadata?.paymentAttemptId || null,
+            reviewRequired: !!e.reviewRequired,
             date: calendarDate,
             createdAt: e.createdAt,
             rawKind: e.kind,
+            rawEvent: e,
           });
         } else {
           projected.push({
@@ -473,9 +479,12 @@ export class StoreCore {
             description: e.description,
             category: e.category || 'Other',
             paymentMethod: e.paymentMethod || 'OTHER',
+            paymentAttemptId: e.metadata?.paymentAttemptId || null,
+            reviewRequired: !!e.reviewRequired,
             date: calendarDate,
             createdAt: e.createdAt,
             rawKind: e.kind,
+            rawEvent: e,
           });
         }
       } else if (e.kind === EVENT_KINDS.TRANSFER) {
@@ -492,9 +501,12 @@ export class StoreCore {
           description: e.description,
           category: e.category || 'Other',
           paymentMethod: e.paymentMethod || 'OTHER',
+          paymentAttemptId: e.metadata?.paymentAttemptId || null,
+          reviewRequired: !!e.reviewRequired,
           date: calendarDate,
           createdAt: e.createdAt,
           rawKind: e.kind,
+          rawEvent: e,
         });
       } else if (e.kind === EVENT_KINDS.REPAYMENT) {
         const isOutflow = e.fromPartyId === PARTY_USER;
@@ -511,9 +523,12 @@ export class StoreCore {
           description: e.description,
           category: e.category || 'Settlement',
           paymentMethod: e.paymentMethod || 'OTHER',
+          paymentAttemptId: e.metadata?.paymentAttemptId || null,
+          reviewRequired: !!e.reviewRequired,
           date: calendarDate,
           createdAt: e.createdAt,
           rawKind: e.kind,
+          rawEvent: e,
         });
       } else if (e.kind === EVENT_KINDS.ADJUSTMENT) {
         const isPositive = e.fromPartyId === PARTY_USER;
@@ -526,21 +541,30 @@ export class StoreCore {
           amount: (isPositive ? 1 : -1) * (e.amountPaise / 100),
           description: e.description,
           category: e.category || 'Adjustment',
+          paymentMethod: e.paymentMethod || 'OTHER',
+          paymentAttemptId: e.metadata?.paymentAttemptId || null,
+          reviewRequired: !!e.reviewRequired,
           date: calendarDate,
           createdAt: e.createdAt,
           rawKind: e.kind,
+          rawEvent: e,
         });
       } else if (e.kind === EVENT_KINDS.LEGACY_UNCLASSIFIED) {
         projected.push({
           id: e.id,
+          action: 'unclassified',
           type: e.legacyType,
           person: idToName.get(e.personId) || e.metadata?.legacyPersonName || e.personId,
           amount: e.amountPaise / 100,
           description: e.description,
           category: e.category || 'Other',
+          paymentMethod: e.paymentMethod || 'OTHER',
+          paymentAttemptId: e.metadata?.paymentAttemptId || null,
+          reviewRequired: e.reviewRequired !== false,
           date: calendarDate,
           createdAt: e.createdAt,
           rawKind: e.kind,
+          rawEvent: e,
         });
       }
     }
@@ -1498,29 +1522,130 @@ export class StoreCore {
     return JSON.stringify(this.state, null, 2);
   }
 
-  importData(jsonStr) {
+  previewImport(jsonStr) {
+    if (!jsonStr || typeof jsonStr !== 'string') {
+      return { isValid: false, error: 'Empty or invalid file content' };
+    }
     try {
       const parsed = JSON.parse(jsonStr);
       if (!parsed || typeof parsed !== 'object') {
-        return { success: false, error: 'Invalid JSON data' };
+        return { isValid: false, error: 'Import file must contain a JSON object' };
       }
 
-      if (parsed.schemaVersion === 2) {
-        // Direct v2 import
-        this.state = parsed;
-        this.saveCurrentState();
-        this.notify();
-        return { success: true, message: 'Imported Canonical Schema v2 successfully' };
+      const isV2 = parsed.schemaVersion === 2;
+      const txns = Array.isArray(parsed.transactions) ? parsed.transactions : [];
+      const people = Array.isArray(parsed.people) ? parsed.people : [];
+      const warnings = [];
+
+      if (!isV2 && !Array.isArray(parsed.transactions)) {
+        warnings.push('File does not specify transactions array; empty ledger will be initialized');
       }
 
-      // Imported v1 data: store as v1 so controlled migration can be triggered
+      // Check transaction integrity
+      let invalidTxnCount = 0;
+      for (const t of txns) {
+        if (!t || typeof t !== 'object') {
+          invalidTxnCount++;
+          continue;
+        }
+        if (isV2) {
+          if (!t.kind) invalidTxnCount++;
+        } else {
+          if (!t.type) invalidTxnCount++;
+        }
+      }
+      if (invalidTxnCount > 0) {
+        warnings.push(`${invalidTxnCount} transaction record(s) contain missing or invalid schema fields`);
+      }
+
+      return {
+        isValid: true,
+        preview: {
+          schemaVersion: isV2 ? 2 : 1,
+          transactionCount: txns.length,
+          peopleCount: people.length,
+          warnings,
+        },
+        parsed,
+      };
+    } catch (err) {
+      return { isValid: false, error: `JSON Parse Error: ${err.message}` };
+    }
+  }
+
+  hasPreImportBackup() {
+    if (!this.storage) return false;
+    try {
+      const backup = this.storage.getItem('pocketledger_pre_import_backup');
+      return typeof backup === 'string' && backup.length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  getPreImportBackup() {
+    if (!this.storage) return null;
+    try {
+      return this.storage.getItem('pocketledger_pre_import_backup');
+    } catch {
+      return null;
+    }
+  }
+
+  rollbackPreImport() {
+    if (!this.storage) return { success: false, error: 'Storage unavailable' };
+    try {
+      const backupStr = this.storage.getItem('pocketledger_pre_import_backup');
+      if (!backupStr) return { success: false, error: 'No pre-import backup found' };
+
+      const parsed = JSON.parse(backupStr);
       this.state = parsed;
       this.saveCurrentState();
       this.notify();
-      return { success: true, message: 'Imported Schema v1 data. Migration available in Settings.' };
-    } catch (e) {
-      return { success: false, error: e.message };
+      return { success: true, message: 'Restored pre-import snapshot successfully' };
+    } catch (err) {
+      return { success: false, error: `Failed to restore pre-import backup: ${err.message}` };
     }
+  }
+
+  markTransactionReviewed(eventId) {
+    if (!this.isV2()) return { success: true };
+    const e = (this.state.transactions || []).find((t) => t.id === eventId);
+    if (!e) return { success: false, error: 'Transaction not found' };
+    e.reviewRequired = false;
+    e.updatedAt = Date.now();
+    this.saveCurrentState();
+    this.notify();
+    return { success: true };
+  }
+
+  importData(jsonStr) {
+    const val = this.previewImport(jsonStr);
+    if (!val.isValid) {
+      return { success: false, error: val.error };
+    }
+
+    // Preserve safety backup of current data before replacement
+    if (this.storage) {
+      try {
+        const currentData = JSON.stringify(this.state);
+        this.storage.setItem('pocketledger_pre_import_backup', currentData);
+      } catch (err) {
+        console.warn('Could not write pre-import safety backup:', err);
+      }
+    }
+
+    const parsed = val.parsed;
+    this.state = parsed;
+    this.saveCurrentState();
+    this.notify();
+
+    return {
+      success: true,
+      message: parsed.schemaVersion === 2
+        ? `Imported Canonical Schema v2 with ${parsed.transactions?.length || 0} transactions.`
+        : `Imported Schema v1 data with ${parsed.transactions?.length || 0} transactions. Upgrade available in Settings.`,
+    };
   }
 
   // ─────────────────────────────────────────────────────────

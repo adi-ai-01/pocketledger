@@ -4,8 +4,8 @@ import {
   Upload,
   FileText,
   RotateCcw,
-  Check,
   ChevronRight,
+  ChevronDown,
   ShieldCheck,
   AlertTriangle,
   X,
@@ -86,7 +86,7 @@ export default function SettingsTab({
         monthlyBudget: Math.max(0, parsedBudget),
       });
     }
-    setPrefSavedMessage('Budget saved');
+    setPrefSavedMessage('Spending limit saved');
     setTimeout(() => setPrefSavedMessage(null), 2500);
   };
 
@@ -245,173 +245,164 @@ export default function SettingsTab({
   };
 
   return (
-    <div className="animate-fade-in transition-all duration-200 pb-28">
-      {/* ── Header ── */}
-      <header className="pt-4 pb-3">
-        <h1 className="text-xl font-bold tracking-tight text-text-primary">Settings</h1>
-        <p className="text-xs text-text-muted mt-0.5">Preferences and data management</p>
+    <div className="w-full pt-5 sm:pt-6 pb-28 sm:pb-32 space-y-7 animate-fade-in">
+      {/* ── Page Header ── */}
+      <header className="mb-6">
+        <h1 className="text-[26px] sm:text-[28px] font-bold tracking-tight text-text-primary leading-tight">
+          Settings
+        </h1>
+        <p className="text-sm text-text-secondary mt-1">
+          Preferences and data management
+        </p>
       </header>
 
-      <div className="space-y-5">
-        {/* ── 1. Preferences ── */}
-        <section className="theme-card p-4 sm:p-5 space-y-4">
-          <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-            Preferences
-          </h2>
+      {/* ── 1. Preferences Section ── */}
+      <section className="space-y-5">
+        <h2 className="text-base font-semibold text-text-primary">
+          Preferences
+        </h2>
 
-          {/* Currency row */}
-          <div className="flex items-center justify-between gap-4 py-1">
-            <div className="min-w-0">
-              <label htmlFor="currency-select" className="text-sm font-medium text-text-primary block">
-                Currency
-              </label>
-              <p className="text-xs text-text-muted truncate">Display symbol used across the app</p>
+        {/* Currency Control */}
+        <div>
+          <label htmlFor="currency-select" className="text-sm font-medium text-text-secondary block mb-2">
+            Currency
+          </label>
+          <div className="relative">
+            <select
+              id="currency-select"
+              value={currency}
+              onChange={(e) => handleCurrencyChange(e.target.value)}
+              className="w-full h-[48px] px-3.5 pr-10 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm font-medium focus:border-accent outline-none appearance-none cursor-pointer"
+            >
+              {CURRENCY_OPTIONS.map((opt) => (
+                <option key={opt.symbol} value={opt.symbol}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={18} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+          </div>
+        </div>
+
+        {/* Monthly Spending Limit Control */}
+        <div>
+          <label htmlFor="budget-input" className="text-sm font-medium text-text-secondary block mb-2">
+            Monthly spending limit
+          </label>
+          <form onSubmit={handleSaveBudget} className="flex items-center gap-2.5">
+            <div className="relative flex-1">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-medium text-text-muted">
+                {currency}
+              </span>
+              <input
+                id="budget-input"
+                type="number"
+                min="0"
+                placeholder="0 (no limit set)"
+                value={budget}
+                onChange={(e) => setBudget(e.target.value)}
+                className="w-full h-[48px] pl-9 pr-3.5 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm tabular-nums focus:border-accent outline-none"
+              />
             </div>
-            <div className="w-44 flex-shrink-0">
-              <select
-                id="currency-select"
-                value={currency}
-                onChange={(e) => handleCurrencyChange(e.target.value)}
-                className="!py-2 !px-3 !text-xs !min-h-[38px] bg-secondary border border-[var(--border-color)] rounded-lg text-text-primary font-medium"
-              >
-                {CURRENCY_OPTIONS.map((opt) => (
-                  <option key={opt.symbol} value={opt.symbol}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+            <button
+              type="submit"
+              className="h-[48px] w-[84px] flex-shrink-0 btn btn-primary text-sm font-semibold rounded-xl"
+            >
+              Save
+            </button>
+          </form>
+        </div>
 
-          {/* Monthly Budget row */}
-          <div className="pt-3 border-t border-[var(--border-color)]/60">
-            <label htmlFor="budget-input" className="text-sm font-medium text-text-primary block mb-1">
-              Monthly spending limit
-            </label>
-            <form onSubmit={handleSaveBudget} className="flex gap-2 items-center">
-              <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-text-muted">
-                  {currency}
-                </span>
-                <input
-                  id="budget-input"
-                  type="number"
-                  min="0"
-                  placeholder="0 (no limit set)"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  className="!py-2 !pl-8 !pr-3 !text-sm !min-h-[38px] tabular-nums"
-                />
-              </div>
-              <button
-                type="submit"
-                className="btn btn-primary text-xs !py-2 px-4 !min-h-[38px] font-medium"
-              >
-                Save
-              </button>
-            </form>
-          </div>
+        {prefSavedMessage && (
+          <p className="text-xs text-emerald-400 font-medium">
+            {prefSavedMessage}
+          </p>
+        )}
+      </section>
 
-          {prefSavedMessage && (
-            <p className="text-xs text-emerald-400 bg-emerald-500/10 py-1.5 px-2.5 rounded-lg border border-emerald-500/20">
-              {prefSavedMessage}
-            </p>
-          )}
-        </section>
+      <hr className="border-t border-[var(--border-color)]/60 my-1" />
 
-        {/* ── 2. Data Management (Compact Action Rows) ── */}
-        <section className="theme-card divide-y divide-[var(--border-color)]/60 overflow-hidden">
-          <div className="p-4 sm:p-5 pb-3">
-            <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-              Data Management
-            </h2>
-            <p className="text-xs text-text-muted mt-0.5">
-              Backups and transaction exports
-            </p>
-          </div>
+      {/* ── 2. Data and Backups Section ── */}
+      <section className="space-y-4">
+        <h2 className="text-base font-semibold text-text-primary">
+          Data and backups
+        </h2>
 
-          {/* Row 1: Backup Ledger */}
+        <div className="divide-y divide-[var(--border-color)]/60 border-y border-[var(--border-color)]/60">
+          {/* Row 1: Backup ledger */}
           <button
             type="button"
             onClick={handleExportJSON}
-            className="w-full p-4 flex items-center justify-between text-left hover:bg-secondary/40 transition-colors group"
+            className="w-full h-[60px] flex items-center justify-between text-left hover:bg-secondary/30 transition-colors px-1"
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-text-muted group-hover:text-text-primary transition-colors flex-shrink-0">
-                <Download size={16} />
-              </div>
+              <Download size={20} className="text-text-muted flex-shrink-0" />
               <div className="min-w-0">
-                <p className="text-sm font-medium text-text-primary truncate">Backup ledger</p>
+                <p className="text-[15px] font-medium text-text-primary truncate">Backup ledger</p>
                 <p className="text-xs text-text-muted truncate">Download complete JSON ledger backup</p>
               </div>
             </div>
-            <ChevronRight size={16} className="text-text-muted group-hover:text-text-primary transition-colors flex-shrink-0 ml-2" />
+            <ChevronRight size={18} className="text-text-muted flex-shrink-0 ml-3" />
           </button>
 
-          {/* Row 2: Export CSV */}
+          {/* Row 2: Export transactions */}
           <button
             type="button"
             onClick={handleExportCSV}
-            className="w-full p-4 flex items-center justify-between text-left hover:bg-secondary/40 transition-colors group"
+            className="w-full h-[60px] flex items-center justify-between text-left hover:bg-secondary/30 transition-colors px-1"
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-text-muted group-hover:text-text-primary transition-colors flex-shrink-0">
-                <FileText size={16} />
-              </div>
+              <FileText size={20} className="text-text-muted flex-shrink-0" />
               <div className="min-w-0">
-                <p className="text-sm font-medium text-text-primary truncate">Export spreadsheet</p>
-                <p className="text-xs text-text-muted truncate">Download transaction activity as CSV</p>
+                <p className="text-[15px] font-medium text-text-primary truncate">Export transactions</p>
+                <p className="text-xs text-text-muted truncate">Download transaction history as CSV</p>
               </div>
             </div>
-            <ChevronRight size={16} className="text-text-muted group-hover:text-text-primary transition-colors flex-shrink-0 ml-2" />
+            <ChevronRight size={18} className="text-text-muted flex-shrink-0 ml-3" />
           </button>
 
-          {/* Row 3: Restore Backup */}
+          {/* Row 3: Restore backup */}
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="w-full p-4 flex items-center justify-between text-left hover:bg-secondary/40 transition-colors group"
+            className="w-full h-[60px] flex items-center justify-between text-left hover:bg-secondary/30 transition-colors px-1"
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-text-muted group-hover:text-text-primary transition-colors flex-shrink-0">
-                <Upload size={16} />
-              </div>
+              <Upload size={20} className="text-text-muted flex-shrink-0" />
               <div className="min-w-0">
-                <p className="text-sm font-medium text-text-primary truncate">Restore backup</p>
+                <p className="text-[15px] font-medium text-text-primary truncate">Restore backup</p>
                 <p className="text-xs text-text-muted truncate">Import JSON backup with safety preview</p>
               </div>
             </div>
-            <ChevronRight size={16} className="text-text-muted group-hover:text-text-primary transition-colors flex-shrink-0 ml-2" />
+            <ChevronRight size={18} className="text-text-muted flex-shrink-0 ml-3" />
           </button>
 
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".json"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-
-          {/* Pre-import Rollback if safety backup exists */}
+          {/* Pre-import rollback row if safety backup exists */}
           {store?.hasPreImportBackup && store.hasPreImportBackup() && (
             <button
               type="button"
               onClick={handleRollbackPreImport}
-              className="w-full p-4 flex items-center justify-between text-left hover:bg-secondary/40 transition-colors group bg-amber-500/5"
+              className="w-full h-[60px] flex items-center justify-between text-left hover:bg-secondary/30 transition-colors px-1"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400 flex-shrink-0">
-                  <RotateCcw size={16} />
-                </div>
+                <RotateCcw size={20} className="text-amber-400 flex-shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-amber-300 truncate">Restore pre-import backup</p>
+                  <p className="text-[15px] font-medium text-amber-300 truncate">Restore pre-import backup</p>
                   <p className="text-xs text-text-muted truncate">Revert to the state before the last import</p>
                 </div>
               </div>
-              <ChevronRight size={16} className="text-amber-400 flex-shrink-0 ml-2" />
+              <ChevronRight size={18} className="text-amber-400 flex-shrink-0 ml-3" />
             </button>
           )}
-        </section>
+        </div>
+
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".json"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
 
         {importStatus && (
           <p className={`text-xs p-3 rounded-lg border ${
@@ -422,173 +413,186 @@ export default function SettingsTab({
             {importStatus.text}
           </p>
         )}
+      </section>
 
-        {/* ── 3. Database Update Ready (shown only when available) ── */}
-        {migrationStatus === 'AVAILABLE' && (
-          <section className="theme-card p-4 sm:p-5 space-y-3 border-amber-500/30">
-            <div className="flex items-center gap-2 text-amber-300 text-xs font-semibold">
-              <AlertTriangle size={15} /> Database Update Available
-            </div>
-            <p className="text-xs text-text-muted leading-relaxed">
-              An update is ready to upgrade your ledger data. A pre-update safety backup will be created automatically.
-            </p>
+      {/* ── 3. Recovery Section (shown only when relevant) ── */}
+      {(migrationStatus === 'AVAILABLE' || hasRollbackBackup || totalReviewItems > 0) && (
+        <>
+          <hr className="border-t border-[var(--border-color)]/60 my-1" />
 
-            {showMigrationPreview && previewData && (
-              <div className="p-3 rounded-lg bg-secondary/60 text-xs space-y-1 border border-[var(--border-color)]">
-                <p className="text-text-muted">Transactions to update: {previewData.transactionCount}</p>
-                <p className="text-text-muted">Directory contacts: {previewData.peopleCount}</p>
-                {previewData.warnings?.length > 0 && (
-                  <p className="text-amber-400">{previewData.warnings.length} items flagged for review.</p>
+          <section className="space-y-4">
+            <h2 className="text-base font-semibold text-text-primary">
+              Recovery
+            </h2>
+
+            {/* Database Update Available */}
+            {migrationStatus === 'AVAILABLE' && (
+              <div className="p-4 rounded-xl bg-secondary/40 border border-amber-500/30 space-y-3">
+                <div className="flex items-center gap-2 text-amber-300 text-sm font-semibold">
+                  <AlertTriangle size={16} /> Database update available
+                </div>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  An update is ready to upgrade your ledger data. A pre-update safety backup will be created automatically.
+                </p>
+
+                {showMigrationPreview && previewData && (
+                  <div className="p-3 rounded-lg bg-secondary/80 text-xs space-y-1 border border-[var(--border-color)]">
+                    <p className="text-text-secondary">Transactions to update: {previewData.transactionCount}</p>
+                    <p className="text-text-secondary">Directory contacts: {previewData.peopleCount}</p>
+                    {previewData.warnings?.length > 0 && (
+                      <p className="text-amber-400">{previewData.warnings.length} items flagged for review.</p>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleExecuteMigration}
+                    className="btn btn-primary text-xs !py-2 px-3.5 font-medium flex items-center gap-1.5"
+                  >
+                    <ShieldCheck size={14} /> Update now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleToggleMigrationPreview}
+                    className="btn btn-ghost text-xs !py-2 px-3 font-medium"
+                  >
+                    {showMigrationPreview ? 'Hide summary' : 'View summary'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadV1Backup}
+                    className="btn btn-ghost text-xs !py-2 px-3 font-medium text-text-muted hover:text-text-primary"
+                  >
+                    <Download size={13} /> Download backup
+                  </button>
+                </div>
+
+                {migrationFeedback && (
+                  <p className={`text-xs mt-2 ${migrationFeedback.type === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                    {migrationFeedback.text}
+                  </p>
                 )}
               </div>
             )}
 
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={handleExecuteMigration}
-                className="btn btn-primary text-xs !py-2 px-3.5 font-medium flex items-center gap-1.5"
-              >
-                <ShieldCheck size={14} /> Update Now
-              </button>
-              <button
-                type="button"
-                onClick={handleToggleMigrationPreview}
-                className="btn btn-ghost text-xs !py-2 px-3 font-medium"
-              >
-                {showMigrationPreview ? 'Hide Summary' : 'View Summary'}
-              </button>
-              <button
-                type="button"
-                onClick={handleDownloadV1Backup}
-                className="btn btn-ghost text-xs !py-2 px-3 font-medium text-text-muted hover:text-text-primary"
-              >
-                <Download size={13} /> Download Backup
-              </button>
-            </div>
+            {/* Pre-update Backup Available */}
+            {hasRollbackBackup && (
+              <div className="p-4 rounded-xl bg-secondary/40 border border-[var(--border-color)] space-y-3">
+                <p className="text-sm font-medium text-text-primary">
+                  Previous backup available
+                </p>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  A backup created before the last database update is stored locally on this device.
+                </p>
 
-            {migrationFeedback && (
-              <p className={`text-xs mt-2 ${migrationFeedback.type === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
-                {migrationFeedback.text}
-              </p>
-            )}
-          </section>
-        )}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleDownloadV1Backup}
+                    className="btn btn-ghost text-xs !py-2 px-3 font-medium"
+                  >
+                    <Download size={13} /> Download backup
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRollbackV1}
+                    className="btn btn-ghost text-xs !py-2 px-3 text-rose-400 hover:text-rose-300 border-rose-500/20 font-medium"
+                  >
+                    <RotateCcw size={13} /> Restore previous data
+                  </button>
+                </div>
 
-        {/* ── 4. Previous Backup Available (shown only when rollback backup exists) ── */}
-        {hasRollbackBackup && (
-          <section className="theme-card p-4 sm:p-5 space-y-3">
-            <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-              Previous Backup Available
-            </h2>
-            <p className="text-xs text-text-muted leading-relaxed">
-              A backup created before the last database update is stored locally on this device.
-            </p>
-
-            <div className="flex flex-wrap gap-2 pt-1">
-              <button
-                type="button"
-                onClick={handleDownloadV1Backup}
-                className="btn btn-ghost text-xs !py-2 px-3 font-medium"
-              >
-                <Download size={13} /> Download Backup
-              </button>
-              <button
-                type="button"
-                onClick={handleRollbackV1}
-                className="btn btn-ghost text-xs !py-2 px-3 text-rose-400 hover:text-rose-300 border-rose-500/20 font-medium"
-              >
-                <RotateCcw size={13} /> Restore Previous Data
-              </button>
-            </div>
-
-            {rollbackStatus && (
-              <p className="text-xs text-emerald-400 bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
-                {rollbackStatus}
-              </p>
-            )}
-          </section>
-        )}
-
-        {/* ── 5. Records Requiring Review (shown only when review items exist) ── */}
-        {totalReviewItems > 0 && (
-          <section className="theme-card p-4 sm:p-5 space-y-3 border-amber-500/30">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertTriangle size={15} className="text-amber-400" />
-                <h2 className="text-xs font-semibold text-amber-300 uppercase tracking-wider">
-                  Records Requiring Review
-                </h2>
+                {rollbackStatus && (
+                  <p className="text-xs text-emerald-400 bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
+                    {rollbackStatus}
+                  </p>
+                )}
               </div>
-              <span className="text-xs font-medium text-amber-400">
-                {totalReviewItems} {totalReviewItems === 1 ? 'item' : 'items'}
-              </span>
-            </div>
-            <p className="text-xs text-text-muted leading-relaxed">
-              Historical transactions that require confirmation.
-            </p>
+            )}
 
-            <div className="space-y-2 pt-1">
-              {[...pendingAlarms, ...migratedAlarms].map((alarm) => (
-                <div
-                  key={alarm.id}
-                  className="p-3 rounded-lg bg-secondary/50 border border-[var(--border-color)] flex items-center justify-between gap-3 text-xs"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-text-primary truncate">
-                      {alarm.personName || 'Contact'}: {currency}{alarm.amount || (alarm.amountPaise ? alarm.amountPaise / 100 : 0)}
-                    </p>
-                    <p className="text-[11px] text-text-muted">
-                      {alarm.direction === 'settled' ? 'Settlement intent' : 'Lending intent'}
-                    </p>
+            {/* Records Requiring Review */}
+            {totalReviewItems > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={16} className="text-amber-400" />
+                    <h3 className="text-sm font-semibold text-text-primary">
+                      Records requiring review
+                    </h3>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleResolveAlarm(alarm.id)}
-                    className="btn btn-ghost text-xs !py-1 px-2.5 text-text-muted hover:text-text-primary"
-                  >
-                    Dismiss
-                  </button>
+                  <span className="text-xs font-medium text-amber-400">
+                    {totalReviewItems} {totalReviewItems === 1 ? 'item' : 'items'}
+                  </span>
                 </div>
-              ))}
+                <p className="text-xs text-text-secondary">
+                  Historical transactions that require confirmation.
+                </p>
 
-              {unclassifiedEvents.map((evt) => (
-                <div
-                  key={evt.id}
-                  className="p-3 rounded-lg bg-secondary/50 border border-[var(--border-color)] flex items-center justify-between gap-3 text-xs"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-text-primary truncate">
-                      {evt.description || 'Historical Record'}: {currency}{evt.amountPaise / 100}
-                    </p>
-                    <p className="text-[11px] text-text-muted">
-                      Type: {evt.legacyType} · Date: {evt.date}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleMarkTransactionReviewed(evt.id)}
-                    className="btn btn-ghost text-xs !py-1 px-2.5 border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
-                  >
-                    Confirm
-                  </button>
+                <div className="space-y-2 pt-1">
+                  {[...pendingAlarms, ...migratedAlarms].map((alarm) => (
+                    <div
+                      key={alarm.id}
+                      className="p-3.5 rounded-xl bg-secondary/50 border border-[var(--border-color)] flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-text-primary truncate">
+                          {alarm.personName || 'Contact'}: {currency}{alarm.amount || (alarm.amountPaise ? alarm.amountPaise / 100 : 0)}
+                        </p>
+                        <p className="text-[11px] text-text-muted">
+                          {alarm.direction === 'settled' ? 'Settlement intent' : 'Lending intent'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleResolveAlarm(alarm.id)}
+                        className="btn btn-ghost text-xs !py-1 px-2.5 text-text-muted hover:text-text-primary"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  ))}
+
+                  {unclassifiedEvents.map((evt) => (
+                    <div
+                      key={evt.id}
+                      className="p-3.5 rounded-xl bg-secondary/50 border border-[var(--border-color)] flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-text-primary truncate">
+                          {evt.description || 'Historical record'}: {currency}{evt.amountPaise / 100}
+                        </p>
+                        <p className="text-[11px] text-text-muted">
+                          Type: {evt.legacyType} · Date: {evt.date}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleMarkTransactionReviewed(evt.id)}
+                        className="btn btn-ghost text-xs !py-1 px-2.5 border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+                      >
+                        Confirm
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </section>
-        )}
+        </>
+      )}
 
-        {/* ── 6. Understated Privacy Note ── */}
-        <div className="pt-2 text-center text-xs text-text-muted">
-          <p className="font-medium text-text-secondary">PocketLedger</p>
-          <p className="mt-0.5">All financial records are stored locally on your device.</p>
-        </div>
+      {/* ── 4. About / Privacy ── */}
+      <div className="pt-6 text-center text-xs text-text-muted">
+        <p className="font-medium text-text-secondary">PocketLedger</p>
+        <p className="mt-0.5">All financial records are stored locally on your device.</p>
       </div>
 
       {/* ── Import Confirmation & Preview Modal ── */}
       {showImportConfirm && importPreview && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-card border border-[var(--border-color)] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
+          <div className="bg-card border border-[var(--border-color)] rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-semibold text-text-primary">Confirm Ledger Import</h3>
               <button

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Minus, Users, DollarSign, Check, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Users, Check, AlertCircle } from 'lucide-react';
 import { allocateEqualShares } from '../../domain/ledger.js';
 import { convertRupeesToPaise } from '../../domain/migrate-v1-to-v2.js';
 
@@ -67,7 +67,6 @@ export default function SharedExpenseForm({
 
     try {
       const shares = allocateEqualShares(conv.amountPaise, count);
-      // User gets the first share
       setUserShare(String(shares[0] / 100));
 
       let shareIdx = 1;
@@ -169,7 +168,7 @@ export default function SharedExpenseForm({
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors mb-1"
+          className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors mb-1"
         >
           <ArrowLeft size={14} /> Back to actions
         </button>
@@ -177,7 +176,9 @@ export default function SharedExpenseForm({
 
       {/* Total Bill Input */}
       <div>
-        <label className="text-xs text-text-muted mb-1 block">Total Bill Amount ({currency})</label>
+        <label className="text-xs font-medium text-text-secondary mb-1.5 block">
+          Total Bill Amount ({currency})
+        </label>
         <input
           type="number"
           step="any"
@@ -188,22 +189,22 @@ export default function SharedExpenseForm({
             setTotalAmount(e.target.value);
             setErrorMessage(null);
           }}
-          className="!text-3xl !font-bold !py-3 text-center tracking-tight"
+          className="w-full h-[52px] text-2xl font-bold text-center tracking-tight bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary focus:border-accent outline-none"
           autoFocus
         />
       </div>
 
       {/* Payer Selection */}
       <div>
-        <label className="text-xs text-text-muted mb-1 block">Who paid the merchant?</label>
-        <div className="flex gap-2">
+        <label className="text-xs font-medium text-text-secondary mb-1.5 block">Who paid the merchant?</label>
+        <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => setPayer('user')}
-            className={`py-2 px-3 rounded-xl border text-xs font-semibold flex-1 flex items-center justify-center gap-1.5 transition-all ${
+            className={`h-[46px] px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
               payer === 'user'
                 ? 'border-accent bg-accent/15 text-text-primary'
-                : 'border-[var(--border-color)] bg-secondary/40 text-text-muted hover:border-accent/40'
+                : 'border-[var(--border-color)] bg-secondary/40 text-text-secondary hover:border-accent/40'
             }`}
           >
             I Paid (You)
@@ -211,10 +212,10 @@ export default function SharedExpenseForm({
           <button
             type="button"
             onClick={() => setPayer(people[0]?.name || 'Friend')}
-            className={`py-2 px-3 rounded-xl border text-xs font-semibold flex-1 flex items-center justify-center gap-1.5 transition-all ${
+            className={`h-[46px] px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
               payer !== 'user'
                 ? 'border-accent bg-accent/15 text-text-primary'
-                : 'border-[var(--border-color)] bg-secondary/40 text-text-muted hover:border-accent/40'
+                : 'border-[var(--border-color)] bg-secondary/40 text-text-secondary hover:border-accent/40'
             }`}
           >
             Someone Else Paid
@@ -228,7 +229,7 @@ export default function SharedExpenseForm({
               placeholder="Name of payer (e.g. Alice)"
               value={payer}
               onChange={(e) => setPayer(e.target.value)}
-              className="!py-2 !text-sm w-full"
+              className="w-full h-[48px] px-3.5 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
             />
             <datalist id="people-datalist">
               {people.map((p) => (
@@ -240,18 +241,18 @@ export default function SharedExpenseForm({
       </div>
 
       {/* Split Mode Selector */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-xs text-text-muted">Split Mode</label>
-          <div className="flex gap-1.5 p-0.5 rounded-lg bg-secondary/60 border border-[var(--border-color)]">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-medium text-text-secondary">Split Mode</label>
+          <div className="flex p-0.5 rounded-lg bg-secondary border border-[var(--border-color)]">
             <button
               type="button"
               onClick={() => {
                 setSplitMode('equal');
                 applyEqualSplit();
               }}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                splitMode === 'equal' ? 'bg-accent text-white shadow-sm' : 'text-text-muted'
+              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                splitMode === 'equal' ? 'bg-card text-text-primary shadow-sm' : 'text-text-muted hover:text-text-secondary'
               }`}
             >
               Equal Split
@@ -259,8 +260,8 @@ export default function SharedExpenseForm({
             <button
               type="button"
               onClick={() => setSplitMode('custom')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                splitMode === 'custom' ? 'bg-accent text-white shadow-sm' : 'text-text-muted'
+              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                splitMode === 'custom' ? 'bg-card text-text-primary shadow-sm' : 'text-text-muted hover:text-text-secondary'
               }`}
             >
               Custom Amounts
@@ -269,37 +270,35 @@ export default function SharedExpenseForm({
         </div>
 
         {/* User Share Row */}
-        <div className="p-3 rounded-xl bg-secondary/40 border border-[var(--border-color)] space-y-2 mb-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
-              <Users size={14} className="text-accent" /> Your Personal Share
-            </span>
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-text-muted">{currency}</span>
-              <input
-                type="number"
-                step="any"
-                placeholder="0"
-                value={userShare}
-                onChange={(e) => {
-                  setUserShare(e.target.value);
-                  if (splitMode === 'equal') setSplitMode('custom');
-                  setErrorMessage(null);
-                }}
-                className="w-24 !py-1.5 !px-2.5 !text-sm text-right font-bold"
-              />
-            </div>
+        <div className="p-3.5 rounded-xl bg-secondary/40 border border-[var(--border-color)] flex items-center justify-between">
+          <span className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
+            <Users size={14} className="text-accent" /> Your Personal Share
+          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-text-muted">{currency}</span>
+            <input
+              type="number"
+              step="any"
+              placeholder="0"
+              value={userShare}
+              onChange={(e) => {
+                setUserShare(e.target.value);
+                if (splitMode === 'equal') setSplitMode('custom');
+                setErrorMessage(null);
+              }}
+              className="w-24 h-[42px] px-2.5 text-sm text-right font-bold bg-secondary border border-[var(--border-color)] rounded-lg text-text-primary focus:border-accent outline-none"
+            />
           </div>
         </div>
 
         {/* Participants Rows */}
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           <div className="flex items-center justify-between">
-            <label className="text-xs text-text-muted">Other Participants</label>
+            <label className="text-xs font-medium text-text-secondary">Other Participants</label>
             <button
               type="button"
               onClick={addParticipant}
-              className="text-xs text-accent font-medium flex items-center gap-1 hover:underline"
+              className="text-xs text-accent font-semibold flex items-center gap-1 hover:underline"
             >
               <Plus size={13} /> Add Person
             </button>
@@ -309,29 +308,27 @@ export default function SharedExpenseForm({
             <div key={idx} className="flex items-center gap-2">
               <input
                 list="people-datalist"
-                placeholder="Friend's name"
+                placeholder="Contact name"
                 value={sp.person}
                 onChange={(e) => updateParticipant(idx, 'person', e.target.value)}
-                className="flex-1 !py-2 !text-sm"
+                className="flex-1 h-[48px] px-3 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
               />
-              <div className="relative flex items-center">
-                <input
-                  type="number"
-                  step="any"
-                  placeholder="0"
-                  value={sp.amount}
-                  onChange={(e) => {
-                    updateParticipant(idx, 'amount', e.target.value);
-                    if (splitMode === 'equal') setSplitMode('custom');
-                  }}
-                  className="w-24 !py-2 !px-2.5 !text-sm text-right font-medium"
-                />
-              </div>
+              <input
+                type="number"
+                step="any"
+                placeholder="0"
+                value={sp.amount}
+                onChange={(e) => {
+                  updateParticipant(idx, 'amount', e.target.value);
+                  if (splitMode === 'equal') setSplitMode('custom');
+                }}
+                className="w-24 h-[48px] px-2.5 text-sm text-right font-medium bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary focus:border-accent outline-none"
+              />
               {participants.length > 1 && (
                 <button
                   type="button"
                   onClick={() => removeParticipant(idx)}
-                  className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                  className="p-2.5 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors"
                 >
                   <Minus size={15} />
                 </button>
@@ -341,7 +338,7 @@ export default function SharedExpenseForm({
         </div>
 
         {/* Conservation & Remaining Balance Indicator */}
-        <div className={`mt-3 p-3 rounded-xl border text-xs flex items-center justify-between transition-colors ${
+        <div className={`p-3.5 rounded-xl border text-xs flex items-center justify-between transition-colors ${
           Math.abs(remainingFloat) <= 0.01
             ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
             : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
@@ -363,7 +360,7 @@ export default function SharedExpenseForm({
             <button
               type="button"
               onClick={fillRemainingIntoUserShare}
-              className="text-[11px] underline font-semibold text-text-primary hover:text-accent"
+              className="text-xs underline font-semibold text-text-primary hover:text-accent"
             >
               Assign to me
             </button>
@@ -373,23 +370,23 @@ export default function SharedExpenseForm({
 
       {/* Description */}
       <div>
-        <label className="text-xs text-text-muted mb-1 block">Description</label>
+        <label className="text-xs font-medium text-text-secondary mb-1.5 block">Description</label>
         <input
-          placeholder="e.g. Dinner at Bistro, Airbnb trip"
+          placeholder="e.g. Dinner, Trip expenses"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="!py-2.5 !text-sm"
+          className="w-full h-[48px] px-3.5 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
         />
       </div>
 
       {/* Category & Date Grid */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-text-muted mb-1 block">Category</label>
+          <label className="text-xs font-medium text-text-secondary mb-1.5 block">Category</label>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="!py-2.5 !text-sm w-full"
+            className="w-full h-[48px] px-3 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
           >
             {categories.map((c) => (
               <option key={c} value={c}>{c}</option>
@@ -397,18 +394,18 @@ export default function SharedExpenseForm({
           </select>
         </div>
         <div>
-          <label className="text-xs text-text-muted mb-1 block">Date</label>
+          <label className="text-xs font-medium text-text-secondary mb-1.5 block">Date</label>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="!py-2.5 !text-sm w-full"
+            className="w-full h-[48px] px-3 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
           />
         </div>
       </div>
 
       {errorMessage && (
-        <p className="text-xs text-red-400 bg-red-500/10 p-2.5 rounded-lg border border-red-500/20">
+        <p className="text-xs text-rose-400 bg-rose-500/10 p-3 rounded-xl border border-rose-500/20">
           {errorMessage}
         </p>
       )}
@@ -417,7 +414,7 @@ export default function SharedExpenseForm({
       <button
         type="submit"
         disabled={Math.abs(remainingFloat) > 0.01}
-        className={`btn btn-primary w-full mt-2 !py-3 font-semibold ${
+        className={`btn btn-primary w-full h-[48px] mt-2 font-semibold rounded-xl ${
           Math.abs(remainingFloat) > 0.01 ? 'opacity-50 cursor-not-allowed' : ''
         }`}
       >
@@ -426,4 +423,3 @@ export default function SharedExpenseForm({
     </form>
   );
 }
-

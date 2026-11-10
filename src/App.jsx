@@ -65,12 +65,12 @@ export default function App() {
   return (
     <div className="flex flex-col min-h-dvh bg-primary text-primary transition-all duration-200">
       {/* Pending alarms banner */}
-      <div className="max-w-2xl mx-auto w-full px-3 sm:px-6">
+      <div className="max-w-2xl mx-auto w-full px-5 sm:px-6">
         <PendingBanner alarms={store.state.pendingAlarms} onResolve={store.resolvePendingAlarm} />
       </div>
 
       {/* Unresolved UPI payment attempts banner */}
-      <div className="max-w-2xl mx-auto w-full px-3 sm:px-6">
+      <div className="max-w-2xl mx-auto w-full px-5 sm:px-6">
         <UnresolvedAttemptsBanner
           attempts={store.getUnresolvedPaymentAttempts ? store.getUnresolvedPaymentAttempts() : []}
           onReconcile={(id, data) => store.reconcilePaymentAttempt(id, data)}
@@ -79,9 +79,9 @@ export default function App() {
       </div>
 
       {/* Main content with responsive desktop centering */}
-      <main className="flex-1 overflow-y-auto pb-24">
-        <div className="max-w-2xl mx-auto w-full px-3 sm:px-6">
-          <div key={tab} className="animate-fade-in">
+      <main className="flex-1 w-full overflow-y-auto overflow-x-hidden pb-24">
+        <div className="max-w-2xl mx-auto w-full px-5 sm:px-6">
+          <div key={tab} className="animate-fade-in w-full min-w-0">
             {(tab === 'home' || tab === 'overview') && (
               <HomeTab
                 analytics={analytics}

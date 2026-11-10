@@ -3,14 +3,10 @@ import {
   Users,
   Search,
   Plus,
-  ArrowUpRight,
-  ArrowDownLeft,
   ChevronRight,
   X,
-  CreditCard,
   Archive,
   UserPlus,
-  Clock,
 } from 'lucide-react';
 import { isValidUpiId } from '../domain/store-core.js';
 import PersonDetailView from './PersonDetailView.jsx';
@@ -42,7 +38,6 @@ export default function PeopleTab({
     if (store?.getPeopleDirectory) {
       return store.getPeopleDirectory();
     }
-    // Fallback using props
     const list = people.map((p) => ({
       ...p,
       balanceRupees: balances[p.name] || 0,
@@ -102,44 +97,51 @@ export default function PeopleTab({
       }
 
       return true;
-    }).sort((a, b) => {
-      // Sort by absolute balance descending first, then alphabetically
-      const absDiff = Math.abs(b.balanceRupees) - Math.abs(a.balanceRupees);
-      if (absDiff !== 0) return absDiff;
-      return a.name.localeCompare(b.name);
     });
-  }, [directory, searchQuery, filter, showArchived]);
+  }, [directory, filter, showArchived, searchQuery]);
 
+  // Handler for adding a new person
   const handleAddPerson = (e) => {
     e.preventDefault();
-    const cleanName = newPersonName.trim();
-    if (!cleanName) {
-      setAddError('Please enter a person name');
+    setAddError(null);
+
+    const trimmedName = newPersonName.trim();
+    if (!trimmedName) {
+      setAddError('Person name cannot be empty');
       return;
     }
 
-    const cleanUpi = newPersonUpi.trim();
-    if (cleanUpi && !isValidUpiId(cleanUpi)) {
-      setAddError(`Invalid UPI ID '${cleanUpi}'. Expected format: username@bank (e.g. rahul@okaxis)`);
+    // Check duplicate name
+    const exists = people.some((p) => p.name.toLowerCase() === trimmedName.toLowerCase());
+    if (exists) {
+      setAddError(`A contact named '${trimmedName}' already exists.`);
       return;
     }
 
-    if (store?.addPerson) {
-      store.addPerson(cleanName, cleanUpi);
-    } else if (onAddPerson) {
-      onAddPerson(cleanName, cleanUpi);
+    // Validate UPI ID if provided
+    const trimmedUpi = newPersonUpi.trim();
+    if (trimmedUpi && !isValidUpiId(trimmedUpi)) {
+      setAddError(`Invalid UPI ID '${trimmedUpi}'. Format must be username@bank (e.g. name@okaxis)`);
+      return;
+    }
+
+    if (onAddPerson) {
+      const res = onAddPerson({ name: trimmedName, upiId: trimmedUpi });
+      if (res && res.success === false) {
+        setAddError(res.error || 'Failed to add person');
+        return;
+      }
     }
 
     setNewPersonName('');
     setNewPersonUpi('');
-    setAddError(null);
     setShowAddModal(false);
   };
 
-  // If a person is currently selected, render the dedicated PersonDetailView
+  // If a person is currently selected, drill down into PersonDetailView
   if (selectedPerson) {
     return (
-      <div className="px-5 pt-3">
+      <div className="w-full pt-4 sm:pt-5 pb-28 sm:pb-32 animate-fade-in">
         <PersonDetailView
           personName={selectedPerson.name}
           personId={selectedPerson.id}
@@ -153,19 +155,21 @@ export default function PeopleTab({
   }
 
   return (
-    <div className="animate-fade-in pb-16">
+    <div className="w-full pt-5 sm:pt-6 pb-28 sm:pb-32 space-y-6 animate-fade-in">
       {/* ── Screen Header ── */}
-      <header className="px-2 sm:px-0 pt-5 pb-3 flex items-center justify-between">
+      <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-text-primary">People</h1>
-          <p className="text-xs text-text-muted mt-0.5">
+          <h1 className="text-[26px] sm:text-[28px] font-bold tracking-tight text-text-primary leading-tight">
+            People
+          </h1>
+          <p className="text-sm text-text-secondary mt-0.5">
             {counts.all} {counts.all === 1 ? 'contact' : 'contacts'} · {counts.owedToMe + counts.iOwe} active balances
           </p>
         </div>
 
         <button
           onClick={() => setShowAddModal(true)}
-          className="btn btn-primary text-xs py-2 px-3 flex items-center gap-1.5 font-semibold"
+          className="h-[38px] px-3.5 rounded-xl bg-accent text-white text-xs font-semibold flex items-center gap-1.5 hover:opacity-90 active:opacity-85 transition-opacity"
           aria-label="Add Person"
         >
           <Plus size={15} /> Add Person
@@ -173,73 +177,73 @@ export default function PeopleTab({
       </header>
 
       {/* ── Search Bar ── */}
-      <div className="px-2 sm:px-0 mb-3">
-        <div className="relative">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+      <div>
+        <div className="relative flex items-center">
+          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
           <input
             type="text"
             placeholder="Search by name or UPI handle..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="!py-2.5 !pl-9 !pr-9 !text-xs w-full bg-secondary/50 rounded-xl border border-[var(--border-color)] placeholder:text-text-muted"
+            className="w-full h-[48px] pl-11 pr-10 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none placeholder:text-text-muted"
           />
           {searchQuery && (
             <button
+              type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary p-0.5"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary p-1 flex items-center justify-center"
+              aria-label="Clear search"
             >
-              <X size={14} />
+              <X size={16} />
             </button>
           )}
         </div>
       </div>
 
       {/* ── Filter Pills Bar ── */}
-      <div className="px-2 sm:px-0 mb-4">
-        <div className="flex items-center justify-between gap-1 overflow-x-auto no-scrollbar pb-1">
-          <div className="flex items-center gap-1.5">
-            {[
-              { id: 'ALL', label: 'All', count: counts.all },
-              { id: 'OWED_TO_ME', label: 'Owed to you', count: counts.owedToMe },
-              { id: 'I_OWE', label: 'You owe', count: counts.iOwe },
-              { id: 'SETTLED', label: 'Settled', count: counts.settled },
-            ].map((tab) => {
-              const isActive = !showArchived && filter === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    setShowArchived(false);
-                    setFilter(tab.id);
-                  }}
-                  className={`text-xs py-1.5 px-2.5 rounded-lg border font-medium flex items-center gap-1.5 transition-all whitespace-nowrap ${
-                    isActive
-                      ? 'border-accent bg-accent/15 text-text-primary font-bold'
-                      : 'border-[var(--border-color)] bg-secondary/30 text-text-muted hover:text-text-primary'
-                  }`}
-                >
-                  <span>{tab.label}</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                    isActive ? 'bg-accent/30 text-text-primary font-bold' : 'bg-white/5 text-text-muted'
-                  }`}>
-                    {tab.count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+      <div>
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+          {[
+            { id: 'ALL', label: 'All', count: counts.all },
+            { id: 'OWED_TO_ME', label: 'Owed to you', count: counts.owedToMe },
+            { id: 'I_OWE', label: 'You owe', count: counts.iOwe },
+            { id: 'SETTLED', label: 'Settled', count: counts.settled },
+          ].map((tab) => {
+            const isActive = !showArchived && filter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setShowArchived(false);
+                  setFilter(tab.id);
+                }}
+                className={`h-[34px] px-3 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-all whitespace-nowrap flex-shrink-0 ${
+                  isActive
+                    ? 'border-accent bg-accent/15 text-text-primary font-semibold'
+                    : 'border-[var(--border-color)] bg-secondary/40 text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                  isActive ? 'bg-accent/30 text-text-primary font-bold' : 'bg-white/5 text-text-muted'
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
 
           {/* Archived Toggle Button */}
           {counts.archived > 0 && (
             <button
               onClick={() => setShowArchived(!showArchived)}
-              className={`text-xs py-1.5 px-2.5 rounded-lg border font-medium flex items-center gap-1.5 transition-all whitespace-nowrap ml-1 ${
+              className={`h-[34px] px-3 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-all whitespace-nowrap flex-shrink-0 ${
                 showArchived
                   ? 'border-accent bg-accent/20 text-text-primary font-bold'
-                  : 'border-[var(--border-color)] bg-secondary/20 text-text-muted hover:text-text-primary'
+                  : 'border-[var(--border-color)] bg-secondary/30 text-text-secondary hover:text-text-primary'
               }`}
             >
-              <Archive size={12} />
+              <Archive size={13} />
               <span>Archived ({counts.archived})</span>
             </button>
           )}
@@ -247,12 +251,12 @@ export default function PeopleTab({
       </div>
 
       {/* ── People Directory List ── */}
-      <div className="px-2 sm:px-0 space-y-2">
+      <div>
         {filteredPeople.length === 0 ? (
-          <div className="theme-card p-8 text-center space-y-3">
-            <Users size={32} className="text-text-muted mx-auto opacity-40" />
+          <div className="py-12 text-center space-y-2">
+            <Users size={28} className="text-text-muted mx-auto opacity-40" />
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-text-secondary">
+              <p className="text-sm font-medium text-text-secondary">
                 {searchQuery
                   ? `No people matching "${searchQuery}"`
                   : showArchived
@@ -271,98 +275,92 @@ export default function PeopleTab({
                   : 'Add friends and counterparties to manage shared bills, lending, and repayments.'}
               </p>
             </div>
-            {!searchQuery && !showArchived && (
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="btn btn-primary text-xs py-2 px-3 mx-auto flex items-center gap-1.5 mt-2"
-              >
-                <UserPlus size={14} /> Add First Contact
-              </button>
-            )}
           </div>
         ) : (
-          filteredPeople.map((person) => {
-            const bal = person.balanceRupees;
-            const isOwed = bal > 0.001;
-            const isOwe = bal < -0.001;
-            const isZero = !isOwed && !isOwe;
-            const absBal = Math.abs(bal);
+          <div className="divide-y divide-[var(--border-color)]/60 border-y border-[var(--border-color)]/60">
+            {filteredPeople.map((person) => {
+              const bal = person.balanceRupees;
+              const isOwed = bal > 0.001;
+              const isOwe = bal < -0.001;
+              const isZero = !isOwed && !isOwe;
+              const absBal = Math.abs(bal);
 
-            return (
-              <div
-                key={person.id || person.name}
-                onClick={() => setSelectedPerson(person)}
-                className="theme-card p-3.5 flex items-center gap-3.5 cursor-pointer hover:border-accent/40 active:scale-[0.99] transition-all"
-              >
-                {/* Initials Avatar */}
+              return (
                 <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 border ${
-                    isZero
-                      ? 'bg-secondary border-[var(--border-color)] text-text-muted'
-                      : isOwed
-                      ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
-                      : 'bg-rose-500/15 border-rose-500/30 text-rose-400'
-                  }`}
+                  key={person.id || person.name}
+                  onClick={() => setSelectedPerson(person)}
+                  className="w-full h-[60px] flex items-center justify-between gap-3 text-left hover:bg-secondary/30 transition-colors px-1 cursor-pointer"
                 >
-                  {person.name ? person.name.charAt(0).toUpperCase() : '?'}
-                </div>
+                  {/* Initials Avatar */}
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-semibold flex-shrink-0 border ${
+                      isZero
+                        ? 'bg-secondary border-[var(--border-color)] text-text-muted'
+                        : isOwed
+                        ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400'
+                        : 'bg-rose-500/10 border-rose-500/25 text-rose-400'
+                    }`}
+                  >
+                    {person.name ? person.name.charAt(0).toUpperCase() : '?'}
+                  </div>
 
-                {/* Name & Subtitle */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-sm font-semibold text-text-primary truncate">
-                      {person.name}
+                  {/* Name & Subtitle */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[15px] font-medium text-text-primary truncate">
+                        {person.name}
+                      </p>
+                      {person.isArchived && (
+                        <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-neutral-500/20 text-neutral-400 font-semibold border border-neutral-500/30">
+                          Archived
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-text-muted truncate">
+                      {person.lastActivityDate ? (
+                        <span>Last: {person.lastActivityDate}</span>
+                      ) : (
+                        <span>{person.transactionCount > 0 ? `${person.transactionCount} transactions` : 'No transactions'}</span>
+                      )}
+                      {person.upiId && (
+                        <>
+                          <span>·</span>
+                          <span className="font-mono text-[11px] text-text-muted">{person.upiId}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Balance & Direction Badge */}
+                  <div className="text-right flex-shrink-0">
+                    <div className={`text-[15px] font-semibold tabular-nums ${
+                      isZero
+                        ? 'text-text-muted'
+                        : isOwed
+                        ? 'text-emerald-400'
+                        : 'text-rose-400'
+                    }`}>
+                      {isZero ? `${currency}0` : `${isOwed ? '+' : '-'}${currency}${absBal.toLocaleString('en-IN')}`}
+                    </div>
+                    <p className="text-[11px] text-text-muted">
+                      {isZero ? 'Settled' : isOwed ? 'owes you' : 'you owe'}
                     </p>
-                    {person.isArchived && (
-                      <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-neutral-500/20 text-neutral-400 font-bold border border-neutral-500/30">
-                        Archived
-                      </span>
-                    )}
                   </div>
-                  <div className="flex items-center gap-1.5 text-[11px] text-text-muted mt-0.5 truncate">
-                    {person.lastActivityDate ? (
-                      <span>Last: {person.lastActivityDate}</span>
-                    ) : (
-                      <span>{person.transactionCount > 0 ? `${person.transactionCount} transactions` : 'No transactions'}</span>
-                    )}
-                    {person.upiId && (
-                      <>
-                        <span>·</span>
-                        <span className="font-mono text-[10px] text-text-muted/80">{person.upiId}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
 
-                {/* Balance & Direction Badge */}
-                <div className="text-right flex-shrink-0">
-                  <div className={`text-sm font-bold tabular-nums ${
-                    isZero
-                      ? 'text-text-muted'
-                      : isOwed
-                      ? 'text-emerald-400'
-                      : 'text-rose-400'
-                  }`}>
-                    {isZero ? `${currency}0` : `${isOwed ? '+' : '-'}${currency}${absBal.toLocaleString('en-IN')}`}
-                  </div>
-                  <p className="text-[10px] text-text-muted uppercase tracking-wider font-semibold">
-                    {isZero ? 'Settled' : isOwed ? 'owes you' : 'you owe'}
-                  </p>
+                  <ChevronRight size={18} className="text-text-muted flex-shrink-0 ml-1" />
                 </div>
-
-                <ChevronRight size={16} className="text-text-muted flex-shrink-0" />
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </div>
 
       {/* ── Add Person Modal ── */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-card border border-[var(--border-color)] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
+          <div className="bg-card border border-[var(--border-color)] rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-text-primary">Add New Person</h3>
+              <h3 className="text-base font-semibold text-text-primary">Add New Person</h3>
               <button
                 onClick={() => {
                   setShowAddModal(false);
@@ -374,57 +372,57 @@ export default function PeopleTab({
               </button>
             </div>
 
-            <form onSubmit={handleAddPerson} className="space-y-3.5">
+            <form onSubmit={handleAddPerson} className="space-y-4">
               <div>
-                <label className="text-xs text-text-muted block mb-1">Full Name</label>
+                <label className="text-xs font-medium text-text-secondary block mb-1.5">Full Name</label>
                 <input
                   value={newPersonName}
                   onChange={(e) => {
                     setNewPersonName(e.target.value);
                     setAddError(null);
                   }}
-                  className="!py-2.5 !text-sm w-full"
+                  className="w-full h-[50px] px-3.5 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
                   placeholder="e.g. Vikram Sharma"
                   autoFocus
                 />
               </div>
 
               <div>
-                <label className="text-xs text-text-muted block mb-1">UPI ID (optional)</label>
+                <label className="text-xs font-medium text-text-secondary block mb-1.5">UPI ID (optional)</label>
                 <input
                   value={newPersonUpi}
                   onChange={(e) => {
                     setNewPersonUpi(e.target.value);
                     setAddError(null);
                   }}
-                  className="!py-2.5 !text-sm w-full font-mono"
+                  className="w-full h-[50px] px-3.5 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm font-mono focus:border-accent outline-none"
                   placeholder="e.g. vikram@okhdfcbank"
                 />
-                <p className="text-[10px] text-text-muted mt-1">
-                  Allows seamless external UPI payment launching for outgoing repayments.
+                <p className="text-[11px] text-text-muted mt-1.5">
+                  Allows external UPI payment launching for outgoing repayments.
                 </p>
               </div>
 
               {addError && (
-                <p className="text-xs text-red-400 bg-red-500/10 p-2.5 rounded-lg border border-red-500/20">
+                <p className="text-xs text-rose-400 bg-rose-500/10 p-3 rounded-xl border border-rose-500/20">
                   {addError}
                 </p>
               )}
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => {
                     setShowAddModal(false);
                     setAddError(null);
                   }}
-                  className="btn btn-ghost flex-1 text-xs py-2.5"
+                  className="btn btn-ghost flex-1 text-xs !py-2.5"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-primary flex-1 text-xs py-2.5 font-semibold"
+                  className="btn btn-primary flex-1 text-xs !py-2.5 font-semibold"
                 >
                   Save Person
                 </button>

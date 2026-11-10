@@ -1,80 +1,66 @@
-import { User, Users, ArrowUpRight, ArrowDownLeft, CheckCircle2 } from 'lucide-react';
+import { User, Users, ArrowUpRight, ArrowDownLeft, CheckCircle2, ChevronRight } from 'lucide-react';
 
 export const TRANSACTION_ACTIONS = [
   {
     id: 'personal_expense',
     title: 'Personal Expense',
-    description: "Only your spending — paid by you or covered by someone else.",
-    effect: 'Affects Personal Budget',
+    description: 'Direct personal spending for yourself.',
     icon: User,
-    color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
   },
   {
     id: 'shared_expense',
     title: 'Shared Expense',
-    description: 'Split a group bill — you or another friend paid the merchant.',
-    effect: 'Affects Budget & Receivables',
+    description: 'Split a shared bill among contacts.',
     icon: Users,
-    color: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
   },
   {
     id: 'lend',
     title: 'Lend Money',
-    description: 'You gave money to someone — they owe you.',
-    effect: 'Increases Peer Balance (They Owe)',
+    description: 'Money you lent to a contact.',
     icon: ArrowUpRight,
-    color: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
   },
   {
     id: 'borrow',
     title: 'Borrow Money',
-    description: 'You received money from someone — you owe them.',
-    effect: 'Decreases Peer Balance (You Owe)',
+    description: 'Money you borrowed from a contact.',
     icon: ArrowDownLeft,
-    color: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
   },
   {
     id: 'repayment',
     title: 'Record Repayment',
-    description: 'Clear or partially pay down an existing outstanding debt.',
-    effect: 'Reduces Outstanding Balance',
+    description: 'Settle or pay down an outstanding balance.',
     icon: CheckCircle2,
-    color: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
   },
 ];
 
 export default function ActionSelector({ onSelectAction }) {
   return (
-    <div className="space-y-2.5 animate-fade-in">
-      <p className="text-xs text-text-muted mb-2">
-        Select the financial action that describes this transaction:
+    <div className="space-y-2 animate-fade-in">
+      <p className="text-xs text-text-secondary mb-3">
+        Select transaction type:
       </p>
 
-      <div className="grid gap-2.5">
+      <div className="divide-y divide-[var(--border-color)]/60 border-y border-[var(--border-color)]/60">
         {TRANSACTION_ACTIONS.map((action) => {
           const Icon = action.icon;
           return (
             <button
               key={action.id}
               onClick={() => onSelectAction(action.id)}
-              className="w-full text-left p-3.5 rounded-xl border border-[var(--border-color)] bg-secondary/50 hover:bg-secondary/80 hover:border-accent/40 transition-all active:scale-[0.99] flex items-center gap-3.5 group"
+              className="w-full h-[60px] flex items-center justify-between text-left hover:bg-secondary/30 transition-colors px-1 group"
             >
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border ${action.color}`}>
-                <Icon size={20} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-text-primary group-hover:text-accent transition-colors">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <Icon size={18} className="text-text-muted group-hover:text-accent transition-colors flex-shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="text-[15px] font-medium text-text-primary group-hover:text-accent transition-colors truncate">
                     {action.title}
                   </h3>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-text-muted border border-white/5 whitespace-nowrap">
-                    {action.effect}
-                  </span>
+                  <p className="text-xs text-text-muted truncate">
+                    {action.description}
+                  </p>
                 </div>
-                <p className="text-xs text-text-muted mt-0.5 leading-snug line-clamp-2">
-                  {action.description}
-                </p>
               </div>
+              <ChevronRight size={18} className="text-text-muted group-hover:text-accent transition-colors flex-shrink-0 ml-2" />
             </button>
           );
         })}
@@ -82,4 +68,3 @@ export default function ActionSelector({ onSelectAction }) {
     </div>
   );
 }
-

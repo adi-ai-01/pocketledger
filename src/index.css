@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @theme {
+  --spacing: 4px;
   --color-accent: var(--accent-color);
   --color-accent-dim: var(--accent-dim);
   --color-text-primary: var(--text-primary);
@@ -34,8 +35,8 @@
   --accent-dim: #386cd1;
   --accent-glow: rgba(91, 147, 250, 0.15);
   --border-color: #232a38;
-  --border-radius-card: 14px;
-  --border-radius-btn: 10px;
+  --border-radius-card: 16px;
+  --border-radius-btn: 12px;
   --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.25);
   --owed-green-bg: rgba(16, 185, 129, 0.1);
@@ -68,15 +69,17 @@
 }
 
 /* Base styles */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
 }
 
 html {
   font-size: 15px;
   -webkit-tap-highlight-color: transparent;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -84,12 +87,15 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   min-height: 100dvh;
+  width: 100%;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
 
 #root {
   min-height: 100dvh;
+  width: 100%;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   background: var(--bg-primary);
@@ -177,34 +183,36 @@ body {
    INPUTS & BUTTONS
    ───────────────────────────────────────────────────────────── */
 
-input, select, textarea {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-btn);
-  color: var(--text-primary);
-  padding: 10px 14px;
-  font-size: 0.875rem;
-  font-family: inherit;
-  width: 100%;
-  min-height: 42px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  outline: none;
+@layer base {
+  input, select, textarea {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-btn);
+    color: var(--text-primary);
+    padding: 12px 14px;
+    font-size: 0.875rem;
+    font-family: inherit;
+    width: 100%;
+    min-height: 48px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    outline: none;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px var(--accent-glow);
+  }
+  input::placeholder { color: var(--text-muted); }
 }
-input:focus, select:focus, textarea:focus {
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 2px var(--accent-glow);
-}
-input::placeholder { color: var(--text-muted); }
 
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 10px 16px;
-  min-height: 42px;
+  gap: 8px;
+  padding: 11px 18px;
+  min-height: 46px;
   border-radius: var(--border-radius-btn);
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.875rem;
   border: 1px solid transparent;
   cursor: pointer;

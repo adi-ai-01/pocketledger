@@ -64,7 +64,7 @@ export default function PersonalExpenseForm({
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors mb-1"
+          className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors mb-1"
         >
           <ArrowLeft size={14} /> Back to actions
         </button>
@@ -72,7 +72,9 @@ export default function PersonalExpenseForm({
 
       {/* Amount Header */}
       <div>
-        <label className="text-xs text-text-muted mb-1 block">Expense Amount ({currency})</label>
+        <label className="text-xs font-medium text-text-secondary mb-1.5 block">
+          Expense Amount ({currency})
+        </label>
         <div className="relative">
           <input
             type="number"
@@ -84,7 +86,7 @@ export default function PersonalExpenseForm({
               setAmount(e.target.value);
               setErrorMessage(null);
             }}
-            className="!text-3xl !font-bold !py-3 text-center tracking-tight"
+            className="w-full h-[52px] text-2xl font-bold text-center tracking-tight bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary focus:border-accent outline-none"
             autoFocus
           />
         </div>
@@ -92,15 +94,17 @@ export default function PersonalExpenseForm({
 
       {/* Payer Toggle */}
       <div>
-        <label className="text-xs text-text-muted mb-1.5 block">Who paid the merchant?</label>
+        <label className="text-xs font-medium text-text-secondary mb-1.5 block">
+          Who paid the merchant?
+        </label>
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => setPayerMode('user')}
-            className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+            className={`h-[46px] px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
               payerMode === 'user'
                 ? 'border-accent bg-accent/15 text-text-primary'
-                : 'border-[var(--border-color)] bg-secondary/40 text-text-muted hover:border-accent/40'
+                : 'border-[var(--border-color)] bg-secondary/40 text-text-secondary hover:border-accent/40'
             }`}
           >
             <User size={15} /> I Paid (Self)
@@ -108,10 +112,10 @@ export default function PersonalExpenseForm({
           <button
             type="button"
             onClick={() => setPayerMode('other')}
-            className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+            className={`h-[46px] px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
               payerMode === 'other'
                 ? 'border-accent bg-accent/15 text-text-primary'
-                : 'border-[var(--border-color)] bg-secondary/40 text-text-muted hover:border-accent/40'
+                : 'border-[var(--border-color)] bg-secondary/40 text-text-secondary hover:border-accent/40'
             }`}
           >
             <HelpCircle size={15} /> Someone Else Covered
@@ -119,25 +123,25 @@ export default function PersonalExpenseForm({
         </div>
 
         {payerMode === 'other' && (
-          <div className="mt-2.5 p-3 rounded-xl bg-secondary/50 border border-[var(--border-color)] space-y-2">
-            <label className="text-xs text-text-muted block">Who covered this for you?</label>
+          <div className="mt-2.5 p-3.5 rounded-xl bg-secondary/50 border border-[var(--border-color)] space-y-2">
+            <label className="text-xs text-text-secondary block">Who covered this for you?</label>
             <input
               list="people-datalist"
-              placeholder="Friend's name (e.g. Rahul)"
+              placeholder="Contact name (e.g. Rahul)"
               value={otherPerson}
               onChange={(e) => {
                 setOtherPerson(e.target.value);
                 setErrorMessage(null);
               }}
-              className="!py-2 !text-sm"
+              className="w-full h-[48px] px-3 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
             />
             <datalist id="people-datalist">
               {people.map((p) => (
                 <option key={p.id} value={p.name} />
               ))}
             </datalist>
-            <p className="text-[11px] text-amber-400/90 leading-tight">
-              Notice: This increases your personal monthly spending and creates a ledger debt: you will owe {otherPerson || 'them'} this amount.
+            <p className="text-xs text-amber-400/90 leading-tight">
+              Notice: This creates a ledger debt: you will owe {otherPerson || 'them'} this amount.
             </p>
           </div>
         )}
@@ -146,7 +150,7 @@ export default function PersonalExpenseForm({
       {/* Payment Method Selector (when user paid) */}
       {payerMode === 'user' && (
         <div>
-          <label className="text-xs text-text-muted mb-1.5 block">Payment Method</label>
+          <label className="text-xs font-medium text-text-secondary mb-1.5 block">Payment Method</label>
           <div className="grid grid-cols-3 gap-2">
             {[
               { id: 'CASH', label: 'Cash', icon: Banknote },
@@ -160,10 +164,10 @@ export default function PersonalExpenseForm({
                   key={m.id}
                   type="button"
                   onClick={() => setPaymentMethod(m.id)}
-                  className={`py-2 px-2 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
+                  className={`h-[46px] px-2 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
                     isSelected
-                      ? 'border-accent bg-accent/15 text-text-primary'
-                      : 'border-[var(--border-color)] bg-secondary/40 text-text-muted hover:border-accent/40'
+                      ? 'border-accent bg-accent/15 text-text-primary font-semibold'
+                      : 'border-[var(--border-color)] bg-secondary/40 text-text-secondary hover:border-accent/40'
                   }`}
                 >
                   <Icon size={14} /> {m.label}
@@ -176,23 +180,23 @@ export default function PersonalExpenseForm({
 
       {/* Description */}
       <div>
-        <label className="text-xs text-text-muted mb-1 block">Description</label>
+        <label className="text-xs font-medium text-text-secondary mb-1.5 block">Description</label>
         <input
           placeholder="e.g. Coffee, Groceries, Metro card"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="!py-2.5 !text-sm"
+          className="w-full h-[48px] px-3.5 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
         />
       </div>
 
       {/* Category & Date Grid */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-text-muted mb-1 block">Category</label>
+          <label className="text-xs font-medium text-text-secondary mb-1.5 block">Category</label>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="!py-2.5 !text-sm w-full"
+            className="w-full h-[48px] px-3 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
           >
             {categories.map((c) => (
               <option key={c} value={c}>{c}</option>
@@ -200,27 +204,26 @@ export default function PersonalExpenseForm({
           </select>
         </div>
         <div>
-          <label className="text-xs text-text-muted mb-1 block">Date</label>
+          <label className="text-xs font-medium text-text-secondary mb-1.5 block">Date</label>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="!py-2.5 !text-sm w-full"
+            className="w-full h-[48px] px-3 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
           />
         </div>
       </div>
 
       {errorMessage && (
-        <p className="text-xs text-red-400 bg-red-500/10 p-2.5 rounded-lg border border-red-500/20">
+        <p className="text-xs text-rose-400 bg-rose-500/10 p-3 rounded-xl border border-rose-500/20">
           {errorMessage}
         </p>
       )}
 
       {/* Submit Button */}
-      <button type="submit" className="btn btn-primary w-full mt-2 !py-3 font-semibold">
+      <button type="submit" className="btn btn-primary w-full h-[48px] mt-2 font-semibold rounded-xl">
         {isEdit ? 'Save Changes' : 'Record Personal Expense'}
       </button>
     </form>
   );
 }
-

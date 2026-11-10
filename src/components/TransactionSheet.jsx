@@ -67,20 +67,18 @@ export default function TransactionSheet({
         <div className="handle" />
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2.5">
             {ActionIcon && (
-              <div className="w-7 h-7 rounded-lg bg-accent/15 flex items-center justify-center text-accent">
-                <ActionIcon size={16} />
-              </div>
+              <ActionIcon size={20} className="text-accent flex-shrink-0" />
             )}
-            <h2 className="text-lg font-bold text-text-primary">
+            <h2 className="text-lg font-semibold text-text-primary">
               {getTitle()}
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-secondary transition-colors"
+            className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-secondary/40 transition-colors"
             aria-label="Close"
           >
             <X size={18} />

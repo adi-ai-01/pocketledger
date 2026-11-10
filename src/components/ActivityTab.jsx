@@ -1,20 +1,16 @@
 import { useState, useMemo } from 'react';
 import {
   Search,
-  Filter,
   ArrowUpRight,
   ArrowDownLeft,
   Scissors,
   CheckCircle2,
   AlertTriangle,
   CreditCard,
-  User,
-  Calendar,
   X,
   ExternalLink,
   Clock,
   ShieldCheck,
-  RotateCcw,
 } from 'lucide-react';
 import TransactionDetailModal from './TransactionDetailModal.jsx';
 
@@ -75,7 +71,6 @@ export default function ActivityTab({
     const set = new Set();
     for (const t of allTxns) {
       if (t.person) {
-        // May contain multiple names in shared expense
         for (const p of t.person.split(', ')) {
           if (p.trim()) set.add(p.trim());
         }
@@ -123,111 +118,135 @@ export default function ActivityTab({
 
         // Person filter
         if (personFilter !== 'all') {
-          const matchPerson =
-            (t.person && t.person.toLowerCase().includes(personFilter.toLowerCase())) ||
-            (Array.isArray(t.allocations) && t.allocations.some((a) => (a.person || a.personId).toLowerCase() === personFilter.toLowerCase())) ||
-            (Array.isArray(t.splits) && t.splits.some((s) => (s.person || s.personId).toLowerCase() === personFilter.toLowerCase()));
-          if (!matchPerson) return false;
+          if (!t.person || !t.person.toLowerCase().includes(personFilter.toLowerCase())) {
+            return false;
+          }
         }
 
         // Date filter
         if (dateFilter !== 'all') {
-          const d = new Date(t.date);
+          const tDate = new Date(t.date);
           if (dateFilter === 'this_month') {
-            if (d.getFullYear() !== currentYear || d.getMonth() !== currentMonth) return false;
+            if (tDate.getFullYear() !== currentYear || tDate.getMonth() !== currentMonth) {
+              return false;
+            }
           } else if (dateFilter === 'last_month') {
-            const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-            const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-            if (d.getFullYear() !== lastMonthYear || d.getMonth() !== lastMonth) return false;
+            const lastMonthDate = new Date(currentYear, currentMonth - 1, 1);
+            if (
+              tDate.getFullYear() !== lastMonthDate.getFullYear() ||
+              tDate.getMonth() !== lastMonthDate.getMonth()
+            ) {
+              return false;
+            }
           } else if (dateFilter === 'last_90') {
-            const diffDays = (now - d) / (1000 * 60 * 60 * 24);
-            if (diffDays > 90) return false;
+            const ninetyDaysAgo = new Date();
+            ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+            if (tDate < ninetyDaysAgo) return false;
           }
         }
 
-        // Search query
+        // Search text filter
         if (search.trim()) {
-          const q = search.trim().toLowerCase();
-          const inDesc = (t.description || '').toLowerCase().includes(q);
-          const inPerson = (t.person || '').toLowerCase().includes(q);
-          const inCategory = (t.category || '').toLowerCase().includes(q);
-          if (!inDesc && !inPerson && !inCategory) return false;
+          const q = search.toLowerCase();
+          const matchDesc = t.description && t.description.toLowerCase().includes(q);
+          const matchPerson = t.person && t.person.toLowerCase().includes(q);
+          const matchCat = t.category && t.category.toLowerCase().includes(q);
+          const matchMethod = t.paymentMethod && t.paymentMethod.toLowerCase().includes(q);
+          if (!matchDesc && !matchPerson && !matchCat && !matchMethod) {
+            return false;
+          }
         }
 
         return true;
       })
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
+      .sort((a, b) => {
+        // Chronological sort: newest first
+        const dateDiff = new Date(b.date) - new Date(a.date);
+        if (dateDiff !== 0) return dateDiff;
+        const createdDiff = (b.createdAt || 0) - (a.createdAt || 0);
+        if (createdDiff !== 0) return createdDiff;
+        return String(b.id || '').localeCompare(String(a.id || ''));
+      });
   }, [allTxns, typeFilter, personFilter, dateFilter, search]);
 
   // Group transactions by month for readable presentation
   const groupedTxns = useMemo(() => {
-    const map = {};
-    for (const txn of filteredTxns) {
-      const d = new Date(txn.date);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const label = `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${d.getFullYear()}`;
-      if (!map[key]) map[key] = { key, label, items: [] };
-      map[key].items.push(txn);
+    const groups = [];
+    const map = new Map();
+
+    for (const t of filteredTxns) {
+      const d = new Date(t.date);
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+      if (!map.has(key)) {
+        const groupObj = { key, label, items: [] };
+        map.set(key, groupObj);
+        groups.push(groupObj);
+      }
+      map.get(key).items.push(t);
     }
-    return Object.values(map);
+
+    return groups;
   }, [filteredTxns]);
 
   // Filtered payment attempts
   const filteredAttempts = useMemo(() => {
-    return [...allAttempts]
-      .filter((a) => {
-        if (attemptStatusFilter === 'UNRESOLVED') return a.isUnresolved;
-        if (attemptStatusFilter === 'COMPLETED') return a.status === 'COMPLETED';
-        if (attemptStatusFilter === 'OTHER') return a.status === 'FAILED' || a.status === 'CANCELLED';
+    return allAttempts
+      .filter((att) => {
+        if (attemptStatusFilter === 'UNRESOLVED') return att.isUnresolved;
+        if (attemptStatusFilter === 'COMPLETED') return att.status === 'COMPLETED';
+        if (attemptStatusFilter === 'OTHER') return att.status === 'FAILED' || att.status === 'CANCELLED';
         return true;
       })
       .sort((a, b) => (b.initiatedAt || 0) - (a.initiatedAt || 0));
   }, [allAttempts, attemptStatusFilter]);
 
   const handleEditTxn = (txn) => {
-    if (onOpenSheet) {
-      onOpenSheet(txn.action || txn.type, txn);
-    } else if (onEdit) {
-      onEdit(txn);
-    }
+    setSelectedTxn(null);
+    if (onEdit) onEdit(txn);
   };
 
   const handleOpenLinkedTxn = (eventId) => {
-    const match = allTxns.find((t) => t.id === eventId);
-    if (match) {
-      setSelectedTxn(match);
+    const target = allTxns.find((t) => t.id === eventId || t.eventId === eventId);
+    if (target) {
+      setSelectedTxn(target);
     }
   };
 
   return (
-    <div className="animate-fade-in pb-16">
-      {/* ── Screen Header ── */}
-      <header className="px-2 sm:px-0 pt-5 pb-3">
-        <h1 className="text-xl font-bold tracking-tight text-text-primary">Activity</h1>
-        <p className="text-xs text-text-muted mt-0.5">
-          {allTxns.length} ledger {allTxns.length === 1 ? 'event' : 'events'} recorded
-        </p>
+    <div className="w-full pt-5 sm:pt-6 pb-28 sm:pb-32 space-y-6 animate-fade-in">
+      {/* ── Screen Header & View Toggle ── */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-[26px] sm:text-[28px] font-bold tracking-tight text-text-primary leading-tight">
+            Activity
+          </h1>
+          <p className="text-sm text-text-secondary mt-1">
+            {filteredTxns.length} {filteredTxns.length === 1 ? 'transaction' : 'transactions'} in ledger
+          </p>
+        </div>
 
-        {/* Segmented View Switcher: Ledger Activity vs Payment Attempts */}
-        <div className="grid grid-cols-2 gap-1.5 p-1 bg-secondary/60 rounded-xl border border-[var(--border-color)] mt-3">
+        {/* View Switcher: Ledger vs Payment Attempts */}
+        <div className="flex items-center p-1 rounded-xl bg-secondary border border-[var(--border-color)] self-start sm:self-auto">
           <button
             type="button"
             onClick={() => setActiveView('LEDGER')}
-            className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               activeView === 'LEDGER'
-                ? 'bg-accent/20 border border-accent/40 text-text-primary shadow-sm'
-                : 'text-text-muted hover:text-text-primary'
+                ? 'bg-card text-text-primary shadow-sm'
+                : 'text-text-secondary hover:text-text-primary'
             }`}
           >
-            Ledger Events ({allTxns.length})
+            Ledger
           </button>
           <button
             type="button"
             onClick={() => setActiveView('PAYMENT_ATTEMPTS')}
-            className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
               activeView === 'PAYMENT_ATTEMPTS'
-                ? 'bg-accent/20 border border-accent/40 text-text-primary shadow-sm'
-                : 'text-text-muted hover:text-text-primary'
+                ? 'bg-card text-text-primary shadow-sm'
+                : 'text-text-secondary hover:text-text-primary'
             }`}
           >
             <span>Payment Attempts ({allAttempts.length})</span>
@@ -241,34 +260,35 @@ export default function ActivityTab({
       {activeView === 'LEDGER' ? (
         <>
           {/* ── Search & Filter Controls ── */}
-          <div className="px-2 sm:px-0 space-y-2.5 mb-4">
+          <div className="space-y-3">
             {/* Search Input */}
-            <div className="relative">
-              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+            <div className="relative flex items-center">
+              <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search descriptions, people, categories..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="!py-2.5 !pl-9 !pr-9 !text-xs w-full bg-secondary/50 rounded-xl border border-[var(--border-color)]"
+                className="w-full h-[48px] pl-11 pr-10 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none placeholder:text-text-muted"
               />
               {search && (
                 <button
+                  type="button"
                   onClick={() => setSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary p-0.5"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary p-1 flex items-center justify-center"
+                  aria-label="Clear search"
                 >
-                  <X size={14} />
+                  <X size={16} />
                 </button>
               )}
             </div>
 
             {/* Filter Dropdowns Bar */}
-            <div className="grid grid-cols-3 gap-2">
-              {/* Event Type Filter */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="!py-2 !text-[11px] bg-secondary/60 rounded-xl border border-[var(--border-color)] font-medium"
+                className="w-full h-[44px] px-2.5 sm:px-3 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-xs font-medium focus:border-accent outline-none"
               >
                 {EVENT_TYPE_OPTIONS.map((opt) => (
                   <option key={opt.id} value={opt.id}>
@@ -277,11 +297,10 @@ export default function ActivityTab({
                 ))}
               </select>
 
-              {/* Person Filter */}
               <select
                 value={personFilter}
                 onChange={(e) => setPersonFilter(e.target.value)}
-                className="!py-2 !text-[11px] bg-secondary/60 rounded-xl border border-[var(--border-color)] font-medium"
+                className="w-full h-[44px] px-2.5 sm:px-3 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-xs font-medium focus:border-accent outline-none"
               >
                 <option value="all">All People</option>
                 {uniquePeople.map((name) => (
@@ -291,11 +310,10 @@ export default function ActivityTab({
                 ))}
               </select>
 
-              {/* Date Filter */}
               <select
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="!py-2 !text-[11px] bg-secondary/60 rounded-xl border border-[var(--border-color)] font-medium"
+                className="w-full h-[44px] px-2.5 sm:px-3 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-xs font-medium focus:border-accent outline-none"
               >
                 {DATE_RANGE_OPTIONS.map((opt) => (
                   <option key={opt.id} value={opt.id}>
@@ -307,9 +325,9 @@ export default function ActivityTab({
           </div>
 
           {/* ── Grouped Activity List ── */}
-          <div className="px-2 sm:px-0 space-y-5">
+          <div className="space-y-6">
             {groupedTxns.length === 0 ? (
-              <div className="theme-card p-8 text-center space-y-2">
+              <div className="py-12 text-center space-y-2">
                 <Clock size={32} className="text-text-muted mx-auto opacity-40" />
                 <p className="text-sm font-semibold text-text-secondary">No matching activity found</p>
                 <p className="text-xs text-text-muted max-w-xs mx-auto">
@@ -323,7 +341,7 @@ export default function ActivityTab({
                       setDateFilter('all');
                       setSearch('');
                     }}
-                    className="btn btn-ghost text-xs py-1.5 px-3 mx-auto mt-2 border border-[var(--border-color)]"
+                    className="btn btn-ghost text-xs !py-2 px-3 mx-auto mt-2"
                   >
                     Reset Filters
                   </button>
@@ -332,11 +350,11 @@ export default function ActivityTab({
             ) : (
               groupedTxns.map((group) => (
                 <div key={group.key} className="space-y-2">
-                  <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider px-1">
+                  <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider px-1">
                     {group.label}
                   </h3>
 
-                  <div className="space-y-2">
+                  <div className="divide-y divide-[var(--border-color)]/60 border-y border-[var(--border-color)]/60">
                     {group.items.map((txn) => {
                       const isPE = txn.action === 'personal_expense' || (!txn.action && txn.type === 'give' && !txn.person);
                       const isSE = txn.action === 'shared_expense' || txn.type === 'split';
@@ -351,40 +369,45 @@ export default function ActivityTab({
                       const totalAmt = txn.amount || 0;
                       const userShareAmt = txn.userShare ?? txn.myShare ?? (isPE ? totalAmt : 0);
 
-                      // Display label & semantics
                       let displayTitle = txn.description;
                       let subtitle = '';
                       let amountSign = '';
                       let amountColor = 'text-text-primary';
+                      let Icon = CreditCard;
 
                       if (isPE) {
                         displayTitle = txn.description || 'Personal Expense';
-                        subtitle = txn.category || 'Consumption';
+                        subtitle = txn.category || 'Personal';
                         amountSign = '-';
                         amountColor = 'text-text-primary';
+                        Icon = CreditCard;
                       } else if (isSE) {
                         displayTitle = txn.description || 'Shared Expense';
                         subtitle = txn.person ? `with ${txn.person}` : 'Shared bill';
                         amountSign = '-';
-                        amountColor = 'text-text-primary';
+                        amountColor = 'text-accent';
+                        Icon = Scissors;
                       } else if (isL) {
                         displayTitle = `You lent ${txn.person || 'someone'}`;
                         subtitle = txn.description || 'Loan given';
                         amountSign = '+';
                         amountColor = 'text-emerald-400';
+                        Icon = ArrowUpRight;
                       } else if (isB) {
                         displayTitle = `You borrowed from ${txn.person || 'someone'}`;
                         subtitle = txn.description || 'Loan taken';
                         amountSign = '-';
                         amountColor = 'text-rose-400';
+                        Icon = ArrowDownLeft;
                       } else if (isR) {
+                        Icon = CheckCircle2;
                         if (txn.direction === 'inflow') {
-                          displayTitle = `${txn.person || 'Counterparty'} paid you back`;
+                          displayTitle = `${txn.person || 'Contact'} paid you back`;
                           subtitle = 'Repayment received';
                           amountSign = '-';
                           amountColor = 'text-emerald-400';
                         } else {
-                          displayTitle = `You paid back ${txn.person || 'Counterparty'}`;
+                          displayTitle = `You paid back ${txn.person || 'Contact'}`;
                           subtitle = 'Repayment sent';
                           amountSign = '+';
                           amountColor = 'text-rose-400';
@@ -394,69 +417,54 @@ export default function ActivityTab({
                         subtitle = txn.description || 'Manual correction';
                         amountSign = totalAmt >= 0 ? '+' : '';
                         amountColor = 'text-amber-400';
+                        Icon = AlertTriangle;
                       } else if (isLeg) {
                         displayTitle = `Historical: ${txn.description || txn.type}`;
                         subtitle = txn.person || 'Legacy unclassified';
                         amountColor = 'text-neutral-400';
+                        Icon = AlertTriangle;
                       }
 
                       return (
                         <div
                           key={txn.id}
                           onClick={() => setSelectedTxn(txn)}
-                          className="theme-card p-3.5 flex items-center gap-3.5 cursor-pointer hover:border-accent/40 active:scale-[0.99] transition-all"
+                          className="w-full h-[60px] flex items-center justify-between gap-3 text-left hover:bg-secondary/30 transition-colors px-1 cursor-pointer"
                         >
-                          {/* Semantic Icon Avatar */}
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 border ${
-                            isPE ? 'bg-secondary border-[var(--border-color)] text-text-muted' :
-                            isSE ? 'bg-accent/15 border-accent/30 text-accent' :
-                            isL ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' :
-                            isB ? 'bg-rose-500/15 border-rose-500/30 text-rose-400' :
-                            isR ? 'bg-blue-500/15 border-blue-500/30 text-blue-400' :
-                            'bg-neutral-500/15 border-neutral-500/30 text-neutral-400'
-                          }`}>
-                            {isPE ? <CreditCard size={16} /> :
-                             isSE ? <Scissors size={16} /> :
-                             isL ? <ArrowUpRight size={16} /> :
-                             isB ? <ArrowDownLeft size={16} /> :
-                             isR ? <CheckCircle2 size={16} /> :
-                             <AlertTriangle size={16} />}
-                          </div>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Icon size={20} className="text-text-muted flex-shrink-0" />
 
-                          {/* Info Column */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <p className="text-xs font-bold text-text-primary truncate">
-                                {displayTitle}
-                              </p>
-                              {txn.reviewRequired && (
-                                <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 flex-shrink-0">
-                                  Review
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1.5 text-[11px] text-text-muted mt-0.5 truncate">
-                              <span>{dayNumber} {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}</span>
-                              <span>·</span>
-                              <span className="truncate">{subtitle}</span>
-                              {txn.paymentMethod && txn.paymentMethod !== 'OTHER' && (
-                                <>
-                                  <span>·</span>
-                                  <span className="font-mono text-[9px] bg-secondary px-1 py-0.2 rounded border border-[var(--border-color)]">
-                                    {txn.paymentMethod}
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-[15px] font-medium text-text-primary truncate">
+                                  {displayTitle}
+                                </p>
+                                {txn.reviewRequired && (
+                                  <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30 flex-shrink-0">
+                                    Review
                                   </span>
-                                </>
-                              )}
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 text-xs text-text-muted mt-0.5 truncate">
+                                <span>{dayNumber} {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}</span>
+                                <span>·</span>
+                                <span className="truncate">{subtitle}</span>
+                                {txn.paymentMethod && txn.paymentMethod !== 'OTHER' && (
+                                  <>
+                                    <span>·</span>
+                                    <span>{txn.paymentMethod}</span>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
 
-                          {/* Amount Column */}
-                          <div className="text-right flex-shrink-0">
-                            <div className={`text-xs font-bold ${amountColor} tabular-nums`}>
+                          <div className="text-right flex-shrink-0 ml-3">
+                            <div className={`text-[15px] font-semibold ${amountColor} tabular-nums`}>
                               {amountSign}{currency}{(isSE ? userShareAmt : totalAmt).toLocaleString('en-IN')}
                             </div>
                             {isSE && totalAmt !== userShareAmt && (
-                              <p className="text-[9px] text-text-muted tabular-nums">
+                              <p className="text-[11px] text-text-muted tabular-nums">
                                 Bill: {currency}{totalAmt.toLocaleString('en-IN')}
                               </p>
                             )}
@@ -472,13 +480,13 @@ export default function ActivityTab({
         </>
       ) : (
         /* ── Payment Attempts Subview ── */
-        <div className="px-2 sm:px-0 space-y-4">
-          <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300 space-y-1">
-            <p className="font-semibold flex items-center gap-1.5 text-blue-400">
-              <ShieldCheck size={14} /> External Payment Intent Log
+        <div className="space-y-4">
+          <div className="p-3.5 rounded-xl bg-secondary/60 border border-[var(--border-color)] text-xs text-text-secondary space-y-1">
+            <p className="font-semibold flex items-center gap-1.5 text-text-primary">
+              <ShieldCheck size={15} className="text-accent" /> External Payment Intent Log
             </p>
-            <p className="text-[11px] text-blue-200/80 leading-relaxed">
-              Payment attempts track external payment intents (such as launching UPI apps). They never mutate your financial ledger until explicitly confirmed and reconciled.
+            <p className="text-xs text-text-muted leading-relaxed">
+              Payment attempts track external payment intents (such as launching UPI apps). They never mutate your ledger until explicitly confirmed and reconciled.
             </p>
           </div>
 
@@ -496,8 +504,8 @@ export default function ActivityTab({
                 onClick={() => setAttemptStatusFilter(f.id)}
                 className={`py-1.5 px-3 rounded-lg text-xs font-medium border transition-all whitespace-nowrap ${
                   attemptStatusFilter === f.id
-                    ? 'border-accent bg-accent/20 text-text-primary font-bold'
-                    : 'border-[var(--border-color)] bg-secondary/30 text-text-muted hover:text-text-primary'
+                    ? 'border-accent bg-accent/20 text-text-primary font-semibold'
+                    : 'border-[var(--border-color)] bg-secondary/40 text-text-secondary hover:text-text-primary'
                 }`}
               >
                 {f.label}
@@ -506,9 +514,9 @@ export default function ActivityTab({
           </div>
 
           {/* Attempts List */}
-          <div className="space-y-2.5">
+          <div>
             {filteredAttempts.length === 0 ? (
-              <div className="theme-card p-8 text-center space-y-2">
+              <div className="py-12 text-center space-y-2">
                 <Clock size={32} className="text-text-muted mx-auto opacity-40" />
                 <p className="text-sm font-semibold text-text-secondary">No payment attempts found</p>
                 <p className="text-xs text-text-muted">
@@ -516,25 +524,24 @@ export default function ActivityTab({
                 </p>
               </div>
             ) : (
-              filteredAttempts.map((att) => {
-                const isCompleted = att.status === 'COMPLETED';
-                const isUnresolved = att.isUnresolved;
-                const isCancelled = att.status === 'CANCELLED';
-                const isFailed = att.status === 'FAILED';
+              <div className="divide-y divide-[var(--border-color)]/60 border-y border-[var(--border-color)]/60">
+                {filteredAttempts.map((att) => {
+                  const isCompleted = att.status === 'COMPLETED';
+                  const isUnresolved = att.isUnresolved;
+                  const isCancelled = att.status === 'CANCELLED';
 
-                return (
-                  <div
-                    key={att.id}
-                    className="theme-card p-4 space-y-2.5"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
+                  return (
+                    <div
+                      key={att.id}
+                      className="py-3.5 flex items-start justify-between gap-3 text-left hover:bg-secondary/30 transition-colors px-1"
+                    >
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-mono uppercase font-bold px-2 py-0.5 rounded-full border ${
-                            isCompleted ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
-                            isUnresolved ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
-                            isCancelled ? 'bg-neutral-500/20 text-neutral-400 border-neutral-500/30' :
-                            'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                          <span className={`text-[10px] font-mono uppercase font-semibold px-2 py-0.5 rounded border ${
+                            isCompleted ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' :
+                            isUnresolved ? 'bg-amber-500/10 text-amber-300 border-amber-500/25' :
+                            isCancelled ? 'bg-neutral-500/10 text-neutral-400 border-neutral-500/25' :
+                            'bg-rose-500/10 text-rose-400 border-rose-500/25'
                           }`}>
                             {att.status}
                           </span>
@@ -542,47 +549,42 @@ export default function ActivityTab({
                             #{att.id.slice(-6)}
                           </span>
                         </div>
-                        <h4 className="text-sm font-bold text-text-primary mt-1">
-                          {att.recipientName || 'Counterparty'}
+                        <h4 className="text-[15px] font-medium text-text-primary mt-1 truncate">
+                          {att.recipientName || 'Contact'}
                         </h4>
                         {att.recipientUpiId && (
-                          <p className="text-[11px] font-mono text-text-muted mt-0.5">
+                          <p className="text-xs font-mono text-text-muted mt-0.5 truncate">
                             {att.recipientUpiId}
+                          </p>
+                        )}
+                        {att.reconciliationNotes && (
+                          <p className="text-xs text-text-muted italic mt-1">
+                            Note: {att.reconciliationNotes}
                           </p>
                         )}
                       </div>
 
-                      <div className="text-right">
-                        <span className="text-sm font-bold text-text-primary">
+                      <div className="text-right flex-shrink-0">
+                        <span className="text-[15px] font-semibold text-text-primary tabular-nums">
                           {currency}{att.amountRupees ? att.amountRupees.toLocaleString('en-IN') : '0'}
                         </span>
-                        <p className="text-[10px] text-text-muted mt-0.5">
+                        <p className="text-xs text-text-muted mt-0.5">
                           {new Date(att.initiatedAt).toLocaleDateString()}
                         </p>
+                        {isCompleted && att.eventId && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenLinkedTxn(att.eventId)}
+                            className="text-xs text-accent hover:underline flex items-center gap-1 font-medium mt-1 ml-auto"
+                          >
+                            <ExternalLink size={12} /> View Event
+                          </button>
+                        )}
                       </div>
                     </div>
-
-                    {att.reconciliationNotes && (
-                      <p className="text-[11px] text-text-muted italic border-t border-[var(--border-color)]/50 pt-1.5">
-                        Note: {att.reconciliationNotes}
-                      </p>
-                    )}
-
-                    {/* Action Link: Link to ledger event if completed */}
-                    {isCompleted && att.eventId && (
-                      <div className="pt-1 border-t border-[var(--border-color)]/50 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenLinkedTxn(att.eventId)}
-                          className="text-xs text-accent hover:underline flex items-center gap-1 font-semibold"
-                        >
-                          <ExternalLink size={12} /> View Linked Ledger Event
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
@@ -603,4 +605,3 @@ export default function ActivityTab({
     </div>
   );
 }
-

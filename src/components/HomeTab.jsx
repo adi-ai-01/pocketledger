@@ -61,82 +61,80 @@ export default function HomeTab({
     .slice(0, 5);
 
   return (
-    <div className="animate-fade-in transition-all duration-200 pb-12">
-      {/* ── 1. Minimal Header ── */}
-      <header className="pt-4 pb-3 flex items-center justify-between">
-        <div>
-          <h1 className="text-base font-semibold tracking-tight text-text-primary">
-            PocketLedger
-          </h1>
-          <p className="text-xs text-text-muted mt-0.5">
-            {MONTHS[now.getMonth()]} {now.getFullYear()}
-          </p>
-        </div>
+    <div className="w-full pt-5 sm:pt-6 pb-28 sm:pb-32 space-y-6 animate-fade-in">
+      {/* ── 1. Page Header ── */}
+      <header className="mb-6">
+        <h1 className="text-[26px] sm:text-[28px] font-bold tracking-tight text-text-primary leading-tight">
+          PocketLedger
+        </h1>
+        <p className="text-sm text-text-secondary mt-1">
+          {MONTHS[now.getMonth()]} {now.getFullYear()} financial overview
+        </p>
       </header>
 
-      {/* ── 2. Attention Items (Compact & Actionable) ── */}
+      {/* ── 2. Actionable Attention Banner (Only when relevant) ── */}
       {totalAttentionCount > 0 && (
-        <div className="mb-3.5">
-          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-3 text-xs animate-fade-in">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <AlertTriangle size={15} className="text-amber-400 flex-shrink-0" />
-              <div className="min-w-0">
-                <p className="font-semibold text-amber-300 truncate">
-                  {totalAttentionCount} {totalAttentionCount === 1 ? 'item requires' : 'items require'} attention
-                </p>
-                <p className="text-[11px] text-amber-300/80 truncate">
-                  {unresolvedUpiCount > 0 && `${unresolvedUpiCount} unverified UPI payment${unresolvedUpiCount > 1 ? 's' : ''}`}
-                  {unresolvedUpiCount > 0 && pendingReviewCount > 0 && ' · '}
-                  {pendingReviewCount > 0 && `${pendingReviewCount} legacy review item${pendingReviewCount > 1 ? 's' : ''}`}
-                </p>
-              </div>
+        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-3 text-xs animate-fade-in">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <AlertTriangle size={16} className="text-amber-400 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="font-semibold text-text-primary truncate">
+                {totalAttentionCount} {totalAttentionCount === 1 ? 'item requires' : 'items require'} attention
+              </p>
+              <p className="text-[11px] text-text-secondary truncate">
+                {unresolvedUpiCount > 0 && `${unresolvedUpiCount} unverified UPI payment${unresolvedUpiCount > 1 ? 's' : ''}`}
+                {unresolvedUpiCount > 0 && pendingReviewCount > 0 && ' · '}
+                {pendingReviewCount > 0 && `${pendingReviewCount} legacy review item${pendingReviewCount > 1 ? 's' : ''}`}
+              </p>
             </div>
-
-            {onNavigateTab && (
-              <button
-                onClick={() => onNavigateTab('settings')}
-                className="text-xs font-semibold text-amber-300 hover:text-amber-200 underline whitespace-nowrap flex-shrink-0"
-              >
-                Review
-              </button>
-            )}
           </div>
+
+          {onNavigateTab && (
+            <button
+              onClick={() => onNavigateTab('settings')}
+              className="text-xs font-semibold text-amber-300 hover:text-amber-200 underline whitespace-nowrap flex-shrink-0"
+            >
+              Review
+            </button>
+          )}
         </div>
       )}
 
-      {/* ── 3. Net Peer Balance Card ── */}
-      <div className="mb-3.5 theme-card p-4 sm:p-5 space-y-3.5">
+      {/* ── 3. Net Peer Balance Card (Hero Surface) ── */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-secondary/30 border border-[var(--border-color)]/80 space-y-3.5">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-text-muted">Net peer balance</span>
+          <span className="text-xs font-medium text-text-secondary">
+            Net peer balance
+          </span>
           {onNavigateTab && (
             <button
               onClick={() => onNavigateTab('people')}
-              className="text-xs text-text-muted hover:text-text-primary flex items-center gap-0.5 transition-colors"
+              className="text-xs text-text-secondary hover:text-text-primary flex items-center gap-1 font-medium transition-colors"
             >
               <span>People</span>
-              <ChevronRight size={13} />
+              <ChevronRight size={14} />
             </button>
           )}
         </div>
 
         {areBalancesSettled ? (
-          <div className="flex items-center gap-3 py-1">
-            <div className="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center flex-shrink-0">
-              <CheckCircle2 size={16} />
-            </div>
-            <div>
-              <p className="text-xl sm:text-2xl font-bold text-text-primary tabular-nums">
+          <div className="py-1">
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl sm:text-[34px] font-bold tracking-tight text-text-primary tabular-nums">
                 {currency}0
-              </p>
-              <p className="text-xs text-text-muted">All peer debts are settled up</p>
+              </span>
+              <span className="text-xs text-text-muted font-medium">settled</span>
             </div>
+            <p className="text-xs text-text-secondary mt-0.5">
+              All peer balances are fully settled
+            </p>
           </div>
         ) : (
-          <>
+          <div className="space-y-3.5">
             <div>
-              <div className="flex items-baseline gap-2">
+              <div className="flex items-baseline gap-2.5">
                 <span
-                  className={`text-2xl sm:text-3xl font-bold tracking-tight tabular-nums ${
+                  className={`text-3xl sm:text-[34px] font-bold tracking-tight tabular-nums ${
                     netPeerBalance > 0.001
                       ? 'text-emerald-400'
                       : netPeerBalance < -0.001
@@ -146,46 +144,46 @@ export default function HomeTab({
                 >
                   {netPeerBalance > 0 ? '+' : '-'}{currency}{Math.abs(netPeerBalance).toLocaleString('en-IN')}
                 </span>
-                <span className="text-xs text-text-muted font-medium">
-                  {netPeerBalance > 0.001
-                    ? 'net owed to you'
-                    : 'net you owe'}
+                <span className="text-xs text-text-secondary font-medium">
+                  {netPeerBalance > 0.001 ? 'net owed to you' : 'net you owe'}
                 </span>
               </div>
             </div>
 
-            {/* Two compact secondary figures: Owed to you vs You owe */}
-            <div className="grid grid-cols-2 gap-2.5 pt-1 border-t border-[var(--border-color)]/60">
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/40">
+            {/* Two compact secondary figures */}
+            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[var(--border-color)]/60">
+              <div className="p-3 rounded-xl bg-secondary/40 flex items-center justify-between">
                 <div>
-                  <p className="text-[11px] text-text-muted">Owed to you</p>
-                  <p className="text-sm font-semibold text-emerald-400 tabular-nums">
+                  <p className="text-[11px] text-text-secondary">Owed to you</p>
+                  <p className="text-base font-semibold text-emerald-400 tabular-nums mt-0.5">
                     +{currency}{totalOwedToMe.toLocaleString('en-IN')}
                   </p>
                 </div>
-                <TrendingUp size={14} className="text-emerald-400 opacity-80" />
+                <TrendingUp size={16} className="text-emerald-400 opacity-80" />
               </div>
 
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/40">
+              <div className="p-3 rounded-xl bg-secondary/40 flex items-center justify-between">
                 <div>
-                  <p className="text-[11px] text-text-muted">You owe</p>
-                  <p className="text-sm font-semibold text-rose-400 tabular-nums">
+                  <p className="text-[11px] text-text-secondary">You owe</p>
+                  <p className="text-base font-semibold text-rose-400 tabular-nums mt-0.5">
                     -{currency}{totalIOwe.toLocaleString('en-IN')}
                   </p>
                 </div>
-                <TrendingDown size={14} className="text-rose-400 opacity-80" />
+                <TrendingDown size={16} className="text-rose-400 opacity-80" />
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
 
-      {/* ── 4. Monthly Personal Spending Card ── */}
-      <div className="mb-4 theme-card p-4 sm:p-5 space-y-3">
+      {/* ── 4. Monthly Personal Spending ── */}
+      <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-text-muted">Monthly personal spending</span>
+          <h2 className="text-base font-semibold text-text-primary">
+            Monthly spending
+          </h2>
           {topCat && (
-            <span className="text-[11px] text-text-muted">
+            <span className="text-xs text-text-secondary">
               Top: <strong className="text-text-primary font-medium">{topCat[0]}</strong>
             </span>
           )}
@@ -198,16 +196,16 @@ export default function HomeTab({
         </div>
 
         {hasBudget ? (
-          <div className="space-y-1.5 pt-1">
-            <div className="flex items-center justify-between text-xs text-text-muted">
-              <span>{budgetPct.toFixed(0)}% of {currency}{budget.toLocaleString('en-IN')} budget</span>
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between text-xs text-text-secondary">
+              <span>{budgetPct.toFixed(0)}% of {currency}{budget.toLocaleString('en-IN')} limit</span>
               <span className={remainingBudget < 0 ? 'text-rose-400 font-medium' : ''}>
                 {remainingBudget >= 0
-                  ? `${currency}${remainingBudget.toLocaleString('en-IN')} left`
-                  : `${currency}${Math.abs(remainingBudget).toLocaleString('en-IN')} over`}
+                  ? `${currency}${remainingBudget.toLocaleString('en-IN')} remaining`
+                  : `${currency}${Math.abs(remainingBudget).toLocaleString('en-IN')} over limit`}
               </span>
             </div>
-            <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-300 ${
                   remainingBudget < 0 ? 'bg-rose-500' : 'bg-accent'
@@ -217,56 +215,50 @@ export default function HomeTab({
             </div>
           </div>
         ) : (
-          <div className="pt-0.5 flex items-center justify-between text-[11px] text-text-muted">
-            <span>No budget configured</span>
+          <div className="pt-0.5 flex items-center justify-between text-xs text-text-muted">
+            <span>Personal expenses this month</span>
             {onNavigateTab && (
               <button
                 onClick={() => onNavigateTab('settings')}
-                className="text-text-muted hover:text-text-primary hover:underline transition-colors"
+                className="text-text-secondary hover:text-text-primary hover:underline transition-colors"
               >
-                Set budget in Settings →
+                Set limit in Settings →
               </button>
             )}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* ── 5. Recent Activity Section ── */}
-      <div className="space-y-2.5">
+      <hr className="border-t border-[var(--border-color)]/60 my-1" />
+
+      {/* ── 5. Recent Activity ── */}
+      <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-xs font-semibold text-text-secondary">
+          <h2 className="text-base font-semibold text-text-primary">
             Recent activity
           </h2>
           {projectedTxns.length > 0 && onNavigateTab && (
             <button
               onClick={() => onNavigateTab('history')}
-              className="text-xs text-accent hover:underline flex items-center gap-0.5 font-medium"
+              className="text-xs text-accent hover:underline flex items-center gap-1 font-medium"
             >
               <span>View all</span>
-              <ChevronRight size={13} />
+              <ChevronRight size={14} />
             </button>
           )}
         </div>
 
         {recentTxns.length === 0 ? (
-          <div className="theme-card p-6 text-center space-y-2">
-            <p className="text-sm font-semibold text-text-secondary">
+          <div className="py-8 text-center space-y-1.5">
+            <p className="text-sm font-medium text-text-secondary">
               No transactions recorded yet
             </p>
             <p className="text-xs text-text-muted max-w-xs mx-auto">
-              Track personal expenses, shared bills, or loans with friends.
+              Track personal expenses, shared bills, or loans with contacts.
             </p>
-            <div className="pt-2">
-              <button
-                onClick={() => onOpenSheet(null)}
-                className="btn btn-primary text-xs py-2 px-3 font-semibold inline-flex items-center gap-1.5"
-              >
-                <Plus size={14} /> Add Transaction
-              </button>
-            </div>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="divide-y divide-[var(--border-color)]/60 border-y border-[var(--border-color)]/60">
             {recentTxns.map((txn) => {
               const isPE = txn.action === 'personal_expense' || (!txn.action && txn.type === 'give' && !txn.person);
               const isSE = txn.action === 'shared_expense' || txn.type === 'split';
@@ -279,7 +271,6 @@ export default function HomeTab({
               let subtitle = '';
               let Icon = ArrowUpRight;
               let color = 'text-text-primary';
-              let bgColor = 'bg-secondary/60 text-text-muted';
               let sign = '';
               let displayAmt = txn.amount;
 
@@ -288,44 +279,38 @@ export default function HomeTab({
                 subtitle = txn.category ? `${txn.category} · Personal` : 'Personal expense';
                 Icon = CreditCard;
                 color = 'text-text-primary';
-                bgColor = 'bg-secondary text-text-muted';
                 sign = '-';
               } else if (isSE) {
                 title = txn.description || 'Shared expense';
                 subtitle = 'Shared bill · Your share';
                 Icon = Scissors;
                 color = 'text-accent';
-                bgColor = 'bg-accent/10 text-accent';
                 displayAmt = txn.myShare || txn.userShare || txn.amount;
                 sign = '-';
               } else if (isL) {
                 title = `You lent ${txn.person || 'someone'}`;
-                subtitle = 'Loan to peer · Receivable';
+                subtitle = 'Loan to contact · Receivable';
                 Icon = ArrowUpRight;
                 color = 'text-emerald-400';
-                bgColor = 'bg-emerald-500/10 text-emerald-400';
                 sign = '+';
               } else if (isB) {
                 title = `You borrowed from ${txn.person || 'someone'}`;
-                subtitle = 'Loan from peer · Payable';
+                subtitle = 'Loan from contact · Payable';
                 Icon = ArrowDownLeft;
                 color = 'text-rose-400';
-                bgColor = 'bg-rose-500/10 text-rose-400';
                 sign = '-';
               } else if (isR) {
                 if (txn.direction === 'inflow') {
-                  title = `${txn.person || 'Peer'} paid you back`;
+                  title = `${txn.person || 'Contact'} paid you back`;
                   subtitle = 'Repayment received';
                   Icon = CheckCircle2;
                   color = 'text-emerald-400';
-                  bgColor = 'bg-emerald-500/10 text-emerald-400';
                   sign = '-';
                 } else {
-                  title = `You paid back ${txn.person || 'Peer'}`;
+                  title = `You paid back ${txn.person || 'Contact'}`;
                   subtitle = 'Repayment sent';
                   Icon = CheckCircle2;
                   color = 'text-rose-400';
-                  bgColor = 'bg-rose-500/10 text-rose-400';
                   sign = '+';
                 }
               } else if (isAdj) {
@@ -333,14 +318,12 @@ export default function HomeTab({
                 subtitle = txn.description || 'Balance correction';
                 Icon = AlertTriangle;
                 color = 'text-amber-400';
-                bgColor = 'bg-amber-500/10 text-amber-400';
                 sign = txn.amount >= 0 ? '+' : '';
               } else {
                 title = txn.description || txn.type;
                 subtitle = txn.person ? `${txn.person} · Historical` : 'Historical entry';
                 Icon = AlertTriangle;
                 color = 'text-neutral-400';
-                bgColor = 'bg-neutral-500/10 text-neutral-400';
               }
 
               const d = new Date(txn.date);
@@ -349,20 +332,20 @@ export default function HomeTab({
                 <div
                   key={txn.id}
                   onClick={() => onOpenSheet(txn.action || txn.type, txn)}
-                  className="theme-card p-3 flex items-center gap-3 cursor-pointer hover:border-accent/40 active:scale-[0.99] transition-all"
+                  className="w-full h-[60px] flex items-center justify-between gap-3 text-left hover:bg-secondary/30 transition-colors px-1 cursor-pointer"
                 >
-                  <div className={`w-8 h-8 rounded-lg ${bgColor} flex items-center justify-center flex-shrink-0 border border-[var(--border-color)]`}>
-                    <Icon size={15} className={color} />
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Icon size={20} className="text-text-muted flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-medium text-text-primary truncate">
+                        {title}
+                      </p>
+                      <p className="text-xs text-text-muted truncate">
+                        {d.getDate()} {MONTHS[d.getMonth()]} · {subtitle}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-text-primary truncate">
-                      {title}
-                    </p>
-                    <p className="text-[11px] text-text-muted truncate">
-                      {d.getDate()} {MONTHS[d.getMonth()]} · {subtitle}
-                    </p>
-                  </div>
-                  <span className={`text-xs font-semibold ${color} whitespace-nowrap tabular-nums`}>
+                  <span className={`text-[15px] font-semibold ${color} whitespace-nowrap tabular-nums flex-shrink-0 ml-3`}>
                     {sign}{currency}{displayAmt.toLocaleString('en-IN')}
                   </span>
                 </div>
@@ -370,7 +353,7 @@ export default function HomeTab({
             })}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, ArrowUpRight, ArrowDownLeft, Banknote, CreditCard, CheckCircle2, ShieldCheck, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, ArrowDownLeft, Banknote, CreditCard, CheckCircle2, ExternalLink } from 'lucide-react';
 import UpiModal from './UpiModal.jsx';
 
 export default function LendBorrowForm({
@@ -48,7 +48,6 @@ export default function LendBorrowForm({
 
   // Selected person details
   const matchingPerson = people.find((p) => p.name.toLowerCase() === person.trim().toLowerCase());
-  const personUpiId = matchingPerson?.upiId || '';
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -69,7 +68,6 @@ export default function LendBorrowForm({
     if (direction === 'lend') {
       if (outgoingChannel === 'UPI_LAUNCH') {
         finalPaymentMethod = 'UPI';
-        // Launch external UPI intent via modal with return reconciliation
         if (!isEdit) {
           setShowUpiModal(true);
           return;
@@ -80,11 +78,9 @@ export default function LendBorrowForm({
         finalPaymentMethod = completedMethod;
       }
     } else {
-      // Borrowing: strictly incoming money received
       finalPaymentMethod = incomingMethod;
     }
 
-    // Direct save without initiating external payment
     const payload = {
       type: direction,
       person: person.trim(),
@@ -115,7 +111,7 @@ export default function LendBorrowForm({
           <button
             type="button"
             onClick={onBack}
-            className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors mb-1"
+            className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors mb-1"
           >
             <ArrowLeft size={14} /> Back to actions
           </button>
@@ -130,10 +126,10 @@ export default function LendBorrowForm({
                 setDirection('lend');
                 setErrorMessage(null);
               }}
-              className={`py-2.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+              className={`h-[46px] px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
                 direction === 'lend'
                   ? 'border-accent bg-accent/15 text-text-primary'
-                  : 'border-[var(--border-color)] bg-secondary/40 text-text-muted hover:border-accent/40'
+                  : 'border-[var(--border-color)] bg-secondary/40 text-text-secondary hover:border-accent/40'
               }`}
             >
               <ArrowUpRight size={16} className="text-emerald-400" /> Lend (They Owe You)
@@ -144,10 +140,10 @@ export default function LendBorrowForm({
                 setDirection('borrow');
                 setErrorMessage(null);
               }}
-              className={`py-2.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+              className={`h-[46px] px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
                 direction === 'borrow'
                   ? 'border-accent bg-accent/15 text-text-primary'
-                  : 'border-[var(--border-color)] bg-secondary/40 text-text-muted hover:border-accent/40'
+                  : 'border-[var(--border-color)] bg-secondary/40 text-text-secondary hover:border-accent/40'
               }`}
             >
               <ArrowDownLeft size={16} className="text-rose-400" /> Borrow (You Owe Them)
@@ -155,28 +151,9 @@ export default function LendBorrowForm({
           </div>
         )}
 
-        {/* Direction Indicator */}
-        <div className={`p-2.5 rounded-xl border text-xs flex items-center gap-2 ${
-          direction === 'lend'
-            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-            : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-        }`}>
-          {direction === 'lend' ? (
-            <>
-              <ArrowUpRight size={15} />
-              <span>Outgoing loan: You are giving money. Person will owe you.</span>
-            </>
-          ) : (
-            <>
-              <ArrowDownLeft size={15} />
-              <span>Incoming loan: You received money. You will owe person.</span>
-            </>
-          )}
-        </div>
-
         {/* Amount */}
         <div>
-          <label className="text-xs text-text-muted mb-1 block">
+          <label className="text-xs font-medium text-text-secondary mb-1.5 block">
             {direction === 'lend' ? 'Amount to Lend' : 'Amount to Borrow'} ({currency})
           </label>
           <input
@@ -189,25 +166,25 @@ export default function LendBorrowForm({
               setAmount(e.target.value);
               setErrorMessage(null);
             }}
-            className="!text-3xl !font-bold !py-3 text-center tracking-tight"
+            className="w-full h-[52px] text-2xl font-bold text-center tracking-tight bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary focus:border-accent outline-none"
             autoFocus
           />
         </div>
 
         {/* Person Selector */}
         <div>
-          <label className="text-xs text-text-muted mb-1 block">
+          <label className="text-xs font-medium text-text-secondary mb-1.5 block">
             {direction === 'lend' ? 'Who are you lending to?' : 'Who are you borrowing from?'}
           </label>
           <input
             list="people-datalist"
-            placeholder="Friend's name (e.g. Vikram)"
+            placeholder="Contact name (e.g. Vikram)"
             value={person}
             onChange={(e) => {
               setPerson(e.target.value);
               setErrorMessage(null);
             }}
-            className="!py-2.5 !text-sm w-full"
+            className="w-full h-[48px] px-3.5 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
           />
           <datalist id="people-datalist">
             {people.map((p) => (
@@ -216,7 +193,7 @@ export default function LendBorrowForm({
           </datalist>
 
           {matchingPerson?.upiId && direction === 'lend' && (
-            <p className="text-[11px] text-text-muted mt-1">
+            <p className="text-xs text-text-muted mt-1.5">
               Recipient UPI: <span className="font-mono text-text-primary">{matchingPerson.upiId}</span>
             </p>
           )}
@@ -224,66 +201,65 @@ export default function LendBorrowForm({
 
         {/* Payment Channel & Recording Status Selection */}
         {direction === 'lend' ? (
-          /* OUTGOING LEND: Explicit choice between UPI (Launch App), Cash, or Already Completed */
           <div className="space-y-2">
-            <label className="text-xs text-text-muted block">Payment & Recording Option</label>
+            <label className="text-xs font-medium text-text-secondary block">Payment & Recording Option</label>
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => setOutgoingChannel('UPI_LAUNCH')}
-                className={`py-2 px-2 rounded-xl border text-left transition-all ${
+                className={`p-3 rounded-xl border text-left transition-all ${
                   outgoingChannel === 'UPI_LAUNCH'
                     ? 'border-accent bg-accent/15'
                     : 'border-[var(--border-color)] bg-secondary/40 hover:border-accent/40'
                 }`}
               >
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <ExternalLink size={13} className={outgoingChannel === 'UPI_LAUNCH' ? 'text-accent' : 'text-text-muted'} />
-                  <span className="text-xs font-bold text-text-primary">Launch UPI</span>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <ExternalLink size={14} className={outgoingChannel === 'UPI_LAUNCH' ? 'text-accent' : 'text-text-muted'} />
+                  <span className="text-xs font-semibold text-text-primary">Launch UPI</span>
                 </div>
-                <p className="text-[10px] text-text-muted leading-tight">Pay via UPI app</p>
+                <p className="text-[11px] text-text-muted leading-tight">Pay via UPI app</p>
               </button>
 
               <button
                 type="button"
                 onClick={() => setOutgoingChannel('CASH')}
-                className={`py-2 px-2 rounded-xl border text-left transition-all ${
+                className={`p-3 rounded-xl border text-left transition-all ${
                   outgoingChannel === 'CASH'
                     ? 'border-accent bg-accent/15'
                     : 'border-[var(--border-color)] bg-secondary/40 hover:border-accent/40'
                 }`}
               >
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <Banknote size={13} className={outgoingChannel === 'CASH' ? 'text-accent' : 'text-text-muted'} />
-                  <span className="text-xs font-bold text-text-primary">Cash</span>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Banknote size={14} className={outgoingChannel === 'CASH' ? 'text-accent' : 'text-text-muted'} />
+                  <span className="text-xs font-semibold text-text-primary">Cash</span>
                 </div>
-                <p className="text-[10px] text-text-muted leading-tight">Cash handed over</p>
+                <p className="text-[11px] text-text-muted leading-tight">Cash handed over</p>
               </button>
 
               <button
                 type="button"
                 onClick={() => setOutgoingChannel('ALREADY_COMPLETED')}
-                className={`py-2 px-2 rounded-xl border text-left transition-all ${
+                className={`p-3 rounded-xl border text-left transition-all ${
                   outgoingChannel === 'ALREADY_COMPLETED'
                     ? 'border-accent bg-accent/15'
                     : 'border-[var(--border-color)] bg-secondary/40 hover:border-accent/40'
                 }`}
               >
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <CheckCircle2 size={13} className={outgoingChannel === 'ALREADY_COMPLETED' ? 'text-accent' : 'text-text-muted'} />
-                  <span className="text-xs font-bold text-text-primary">Completed</span>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <CheckCircle2 size={14} className={outgoingChannel === 'ALREADY_COMPLETED' ? 'text-accent' : 'text-text-muted'} />
+                  <span className="text-xs font-semibold text-text-primary">Completed</span>
                 </div>
-                <p className="text-[10px] text-text-muted leading-tight">Already transferred</p>
+                <p className="text-[11px] text-text-muted leading-tight">Already transferred</p>
               </button>
             </div>
 
             {/* Sub-selector for actual method when already completed */}
             {outgoingChannel === 'ALREADY_COMPLETED' && (
-              <div className="p-3 rounded-xl bg-secondary/40 border border-[var(--border-color)] space-y-1.5 animate-fade-in">
-                <label className="text-[11px] text-text-muted block">Actual method used outside PocketLedger:</label>
+              <div className="p-3.5 rounded-xl bg-secondary/40 border border-[var(--border-color)] space-y-2 animate-fade-in">
+                <label className="text-xs text-text-secondary block">Actual method used:</label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: 'UPI', label: 'UPI / QR' },
+                    { id: 'UPI', label: 'UPI' },
                     { id: 'OTHER', label: 'Net Banking' },
                     { id: 'CASH', label: 'Cash' },
                   ].map((m) => (
@@ -291,31 +267,28 @@ export default function LendBorrowForm({
                       key={m.id}
                       type="button"
                       onClick={() => setCompletedMethod(m.id)}
-                      className={`py-1.5 px-2 rounded-lg border text-xs font-medium transition-all ${
+                      className={`h-[40px] px-2 rounded-lg border text-xs font-medium transition-all ${
                         completedMethod === m.id
-                          ? 'border-accent bg-accent/20 text-text-primary font-bold'
-                          : 'border-white/10 text-text-muted hover:text-text-primary'
+                          ? 'border-accent bg-accent/20 text-text-primary font-semibold'
+                          : 'border-[var(--border-color)] bg-secondary/60 text-text-secondary hover:text-text-primary'
                       }`}
                     >
                       {m.label}
                     </button>
                   ))}
                 </div>
-                <p className="text-[10px] text-text-muted leading-tight mt-1">
-                  Records loan in ledger directly without launching external UPI intent.
-                </p>
               </div>
             )}
           </div>
         ) : (
-          /* INCOMING BORROW: Money received into user's possession */
+          /* INCOMING BORROW: strictly recorded money received */
           <div className="space-y-2">
-            <label className="text-xs text-text-muted block">How did you receive this money?</label>
+            <label className="text-xs font-medium text-text-secondary block">How did you receive the money?</label>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { id: 'UPI', label: 'UPI / QR', icon: CreditCard, desc: 'Received in UPI' },
-                { id: 'CASH', label: 'Cash', icon: Banknote, desc: 'Received in cash' },
-                { id: 'OTHER', label: 'Bank / Other', icon: ShieldCheck, desc: 'IMPS / NEFT' },
+                { id: 'UPI', label: 'UPI Transfer', icon: CreditCard },
+                { id: 'CASH', label: 'Cash', icon: Banknote },
+                { id: 'OTHER', label: 'Bank / Other', icon: CreditCard },
               ].map((m) => {
                 const Icon = m.icon;
                 const isSelected = incomingMethod === m.id;
@@ -324,46 +297,39 @@ export default function LendBorrowForm({
                     key={m.id}
                     type="button"
                     onClick={() => setIncomingMethod(m.id)}
-                    className={`py-2 px-2 rounded-xl border text-left transition-all ${
+                    className={`h-[46px] px-2 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
                       isSelected
-                        ? 'border-accent bg-accent/15'
-                        : 'border-[var(--border-color)] bg-secondary/40 hover:border-accent/40'
+                        ? 'border-accent bg-accent/15 text-text-primary font-semibold'
+                        : 'border-[var(--border-color)] bg-secondary/40 text-text-secondary hover:border-accent/40'
                     }`}
                   >
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <Icon size={14} className={isSelected ? 'text-accent' : 'text-text-muted'} />
-                      <span className="text-xs font-bold text-text-primary">{m.label}</span>
-                    </div>
-                    <p className="text-[10px] text-text-muted leading-tight">{m.desc}</p>
+                    <Icon size={14} /> {m.label}
                   </button>
                 );
               })}
             </div>
-            <p className="text-[11px] text-text-muted">
-              Borrowing records money received into your possession. No outgoing UPI intent will be launched.
-            </p>
           </div>
         )}
 
         {/* Description */}
         <div>
-          <label className="text-xs text-text-muted mb-1 block">Description</label>
+          <label className="text-xs font-medium text-text-secondary mb-1.5 block">Description</label>
           <input
-            placeholder={direction === 'lend' ? 'e.g. Loan for concert ticket' : 'e.g. Borrowed for rent'}
+            placeholder={direction === 'lend' ? 'e.g. Loan for concert ticket' : 'e.g. Borrowed for cab'}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="!py-2.5 !text-sm"
+            className="w-full h-[48px] px-3.5 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
           />
         </div>
 
         {/* Category & Date Grid */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-text-muted mb-1 block">Category</label>
+            <label className="text-xs font-medium text-text-secondary mb-1.5 block">Category</label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="!py-2.5 !text-sm w-full"
+              className="w-full h-[48px] px-3 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
             >
               {categories.map((c) => (
                 <option key={c} value={c}>{c}</option>
@@ -371,47 +337,47 @@ export default function LendBorrowForm({
             </select>
           </div>
           <div>
-            <label className="text-xs text-text-muted mb-1 block">Date</label>
+            <label className="text-xs font-medium text-text-secondary mb-1.5 block">Date</label>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="!py-2.5 !text-sm w-full"
+              className="w-full h-[48px] px-3 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
             />
           </div>
         </div>
 
         {errorMessage && (
-          <p className="text-xs text-red-400 bg-red-500/10 p-2.5 rounded-lg border border-red-500/20">
+          <p className="text-xs text-rose-400 bg-rose-500/10 p-3 rounded-xl border border-rose-500/20">
             {errorMessage}
           </p>
         )}
 
         {/* Submit Button */}
-        <button type="submit" className="btn btn-primary w-full mt-2 !py-3 font-semibold">
+        <button type="submit" className="btn btn-primary w-full h-[48px] mt-2 font-semibold rounded-xl">
           {isEdit
             ? 'Save Changes'
             : direction === 'lend'
             ? outgoingChannel === 'UPI_LAUNCH'
-              ? 'Proceed to UPI Verification'
-              : 'Record Lending'
-            : 'Record Borrowing (Money Received)'}
+              ? 'Continue to UPI App'
+              : 'Record Loan Given'
+            : 'Record Loan Received'}
         </button>
       </form>
 
-      {/* Outgoing UPI Intent & Reconciliation Modal */}
+      {/* Outgoing UPI Modal (only for lend with UPI launch) */}
       {showUpiModal && store && (
         <UpiModal
           isOpen={showUpiModal}
           recipientName={person.trim()}
-          recipientUpiId={personUpiId}
+          recipientUpiId={matchingPerson?.upiId || ''}
           amount={parseFloat(amount) || 0}
-          note={description || 'PocketLedger loan'}
+          note={description.trim() || `PocketLedger loan to ${person.trim()}`}
           ledgerTxnData={{
             type: 'lend',
             person: person.trim(),
             amount: parseFloat(amount) || 0,
-            description: description.trim() || 'Lent via UPI',
+            description: description.trim() || 'Loan given via UPI',
             category,
             date,
           }}

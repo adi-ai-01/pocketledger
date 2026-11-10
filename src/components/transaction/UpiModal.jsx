@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, ExternalLink, AlertTriangle, ShieldCheck, Check, RotateCcw, Clock } from 'lucide-react';
+import { X, ExternalLink, AlertTriangle, Check, RotateCcw, Clock } from 'lucide-react';
 import { isValidUpiId } from '../../domain/store-core.js';
 
 export default function UpiModal({
@@ -125,20 +125,18 @@ export default function UpiModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-card border border-[var(--border-color)] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
+      <div className="bg-card border border-[var(--border-color)] rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-blue-500/15 flex items-center justify-center text-blue-400">
-              <ExternalLink size={16} />
-            </div>
-            <h3 className="text-base font-bold text-text-primary">
+          <div className="flex items-center gap-2.5">
+            <ExternalLink size={18} className="text-accent" />
+            <h3 className="text-base font-semibold text-text-primary">
               {!showReconciliation ? 'Initiate UPI Payment' : 'Reconcile UPI Payment'}
             </h3>
           </div>
           <button
             onClick={onCancel}
-            className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5"
+            className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-secondary/40"
           >
             <X size={18} />
           </button>
@@ -146,18 +144,18 @@ export default function UpiModal({
 
         {!showReconciliation ? (
           /* Step 1: Pre-launch details & confirmation */
-          <div className="space-y-3.5">
-            <div className="p-3.5 rounded-xl bg-secondary/50 border border-[var(--border-color)] space-y-2">
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-secondary/50 border border-[var(--border-color)] space-y-3">
               <div className="flex justify-between items-center text-xs">
                 <span className="text-text-muted">Recipient</span>
-                <span className="font-semibold text-text-primary">{recipientName}</span>
+                <span className="font-medium text-text-primary">{recipientName}</span>
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-text-muted">Amount</span>
-                <span className="font-bold text-text-primary text-sm">₹{amount.toLocaleString('en-IN')}</span>
+                <span className="font-semibold text-text-primary text-sm tabular-nums">₹{amount.toLocaleString('en-IN')}</span>
               </div>
               <div>
-                <label className="text-[11px] text-text-muted block mb-1">Recipient UPI ID</label>
+                <label className="text-xs text-text-secondary block mb-1.5">Recipient UPI ID</label>
                 <input
                   placeholder="e.g. name@okhdfcbank"
                   value={upiId}
@@ -165,13 +163,13 @@ export default function UpiModal({
                     setUpiId(e.target.value);
                     setErrorMessage(null);
                   }}
-                  className="!py-2 !text-xs w-full"
+                  className="w-full h-[48px] px-3 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm font-mono focus:border-accent outline-none"
                 />
               </div>
             </div>
 
-            <p className="text-[11px] text-text-muted leading-relaxed">
-              PocketLedger will record this payment attempt and launch your installed UPI app (Google Pay, PhonePe, Paytm, etc.).
+            <p className="text-xs text-text-muted leading-relaxed">
+              PocketLedger will record this payment attempt and launch your installed UPI application.
             </p>
 
             {hasLaunched && (
@@ -180,7 +178,7 @@ export default function UpiModal({
                 <button
                   type="button"
                   onClick={() => setShowReconciliation(true)}
-                  className="underline font-semibold ml-2"
+                  className="underline font-semibold ml-2 hover:text-blue-200"
                 >
                   Verify now
                 </button>
@@ -188,16 +186,16 @@ export default function UpiModal({
             )}
 
             {errorMessage && (
-              <p className="text-xs text-red-400 bg-red-500/10 p-2.5 rounded-lg border border-red-500/20">
+              <p className="text-xs text-rose-400 bg-rose-500/10 p-3 rounded-xl border border-rose-500/20">
                 {errorMessage}
               </p>
             )}
 
-            <div className="flex gap-2 pt-1">
+            <div className="flex gap-2.5 pt-1">
               <button
                 type="button"
                 onClick={onCancel}
-                className="btn btn-ghost flex-1 text-xs py-2.5"
+                className="btn btn-ghost flex-1 text-xs !py-2.5"
               >
                 Cancel
               </button>
@@ -205,22 +203,22 @@ export default function UpiModal({
                 type="button"
                 disabled={isDebouncing}
                 onClick={handleLaunch}
-                className="btn btn-primary flex-1 text-xs py-2.5 flex items-center justify-center gap-1.5"
+                className="btn btn-primary flex-1 text-xs !py-2.5 flex items-center justify-center gap-1.5 font-semibold"
               >
                 <ExternalLink size={14} /> {hasLaunched ? 'Relaunch UPI' : 'Launch UPI App'}
               </button>
             </div>
           </div>
         ) : (
-          /* Step 2: Post-return Reconciliation with explicit outcome selection */
-          <div className="space-y-3.5">
-            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 space-y-1">
+          /* Step 2: Post-return Reconciliation */
+          <div className="space-y-4">
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 space-y-1">
               <p className="font-semibold flex items-center gap-1.5">
-                <AlertTriangle size={14} className="text-amber-400 flex-shrink-0" />
+                <AlertTriangle size={15} className="text-amber-400 flex-shrink-0" />
                 Unverified App Return
               </p>
-              <p className="text-[11px] text-amber-300/80 leading-snug">
-                Returning to PocketLedger does not confirm bank debit. Please report the outcome shown in your UPI app:
+              <p className="text-xs text-amber-300/80 leading-snug">
+                Returning to PocketLedger does not confirm bank debit. Please confirm the outcome shown in your UPI app:
               </p>
             </div>
 
@@ -275,7 +273,7 @@ export default function UpiModal({
                       <Icon size={12} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-bold ${isSelected ? 'text-text-primary' : 'text-text-secondary'}`}>
+                      <p className={`text-xs font-semibold ${isSelected ? 'text-text-primary' : 'text-text-secondary'}`}>
                         {opt.title}
                       </p>
                       <p className="text-[11px] text-text-muted leading-tight mt-0.5">
@@ -288,7 +286,7 @@ export default function UpiModal({
             </div>
 
             {errorMessage && (
-              <p className="text-xs text-red-400 bg-red-500/10 p-2.5 rounded-lg border border-red-500/20">
+              <p className="text-xs text-rose-400 bg-rose-500/10 p-3 rounded-xl border border-rose-500/20">
                 {errorMessage}
               </p>
             )}
@@ -297,7 +295,7 @@ export default function UpiModal({
               type="button"
               disabled={!selectedOutcome}
               onClick={handleConfirmReconciliation}
-              className={`btn btn-primary w-full !py-2.5 text-xs font-semibold ${
+              className={`btn btn-primary w-full h-[48px] text-xs font-semibold rounded-xl ${
                 !selectedOutcome ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
@@ -309,4 +307,3 @@ export default function UpiModal({
     </div>
   );
 }
-

@@ -7,7 +7,6 @@ import {
   Plus,
 } from 'lucide-react';
 import { useStore, computeLendingBalances, computeMonthlyAnalytics } from './store.js';
-import { useTheme } from './context/ThemeContext.jsx';
 import HomeTab from './components/HomeTab.jsx';
 import LendingsTab from './components/LendingsTab.jsx';
 import HistoryTab from './components/HistoryTab.jsx';
@@ -18,7 +17,6 @@ import UnresolvedAttemptsBanner from './components/transaction/UnresolvedAttempt
 
 export default function App() {
   const store = useStore();
-  const { theme } = useTheme();
   const [tab, setTab] = useState('home');
   const [sheet, setSheet] = useState(null); // null | { type: 'give'|'take'|'split'|'settle', editTxn? }
 

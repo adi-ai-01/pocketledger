@@ -64,7 +64,7 @@ export function defaultStateV2() {
     settings: {
       currencySymbol: '₹',
       monthlyBudgetPaise: 0,
-      theme: 'fantasy',
+      theme: 'graphite',
     },
     _rawLegacyBackup: null,
   };
@@ -601,7 +601,7 @@ export class StoreCore {
       settings: {
         currency: this.state.settings?.currencySymbol || '₹',
         monthlyBudget: (this.state.settings?.monthlyBudgetPaise || 0) / 100,
-        theme: this.state.settings?.theme || 'fantasy',
+        theme: this.state.settings?.theme || 'graphite',
       },
       pendingReviews: this.state.pendingReviews,
       paymentAttempts: this.state.paymentAttempts || [],

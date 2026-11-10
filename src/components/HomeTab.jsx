@@ -11,7 +11,6 @@ import {
   Scissors,
   CheckCircle2,
 } from 'lucide-react';
-import { useTheme } from '../context/ThemeContext.jsx';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -25,7 +24,6 @@ export default function HomeTab({
   onOpenSheet,
   onNavigateTab,
 }) {
-  const { theme } = useTheme();
   const currency = settings.currency || '₹';
   const budget = settings.monthlyBudget || 0;
   const now = new Date();
@@ -73,14 +71,6 @@ export default function HomeTab({
           <p className="text-xs text-text-muted mt-0.5">
             {MONTHS[now.getMonth()]} {now.getFullYear()}
           </p>
-        </div>
-
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[var(--border-color)] bg-secondary/50 text-[11px] text-text-muted font-medium">
-          <span
-            className="w-1.5 h-1.5 rounded-full"
-            style={{ backgroundColor: 'var(--accent-color)' }}
-          />
-          <span className="capitalize">{theme}</span>
         </div>
       </header>
 

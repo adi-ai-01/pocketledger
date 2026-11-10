@@ -1,25 +1,26 @@
 import { useState, useRef } from 'react';
 import {
-  Palette,
-  Check,
-  DollarSign,
   Download,
   Upload,
-  AlertTriangle,
-  ShieldCheck,
-  RotateCcw,
-  Info,
-  Clock,
   FileText,
-  AlertCircle,
-  HelpCircle,
-  CheckCircle2,
+  RotateCcw,
+  Check,
+  ChevronRight,
+  ShieldCheck,
+  AlertTriangle,
   X,
-  Coins,
 } from 'lucide-react';
-import { useTheme } from '../context/ThemeContext.jsx';
 
-const CURRENCY_OPTIONS = ['₹', '$', '€', '£', '¥', 'AED', 'CAD', 'AUD'];
+const CURRENCY_OPTIONS = [
+  { symbol: '₹', label: '₹ · Indian Rupee (INR)' },
+  { symbol: '$', label: '$ · US Dollar (USD)' },
+  { symbol: '€', label: '€ · Euro (EUR)' },
+  { symbol: '£', label: '£ · British Pound (GBP)' },
+  { symbol: '¥', label: '¥ · Japanese Yen (JPY)' },
+  { symbol: 'AED', label: 'AED · UAE Dirham' },
+  { symbol: 'CAD', label: 'CAD · Canadian Dollar' },
+  { symbol: 'AUD', label: 'AUD · Australian Dollar' },
+];
 
 export default function SettingsTab({
   settings = {},
@@ -35,27 +36,24 @@ export default function SettingsTab({
   onGetRawV1Backup,
   store,
 }) {
-  const { theme, setTheme, themes } = useTheme();
-
   // Preferences State
   const [currency, setCurrency] = useState(settings.currency || '₹');
   const [budget, setBudget] = useState(String(settings.monthlyBudget || ''));
   const [prefSavedMessage, setPrefSavedMessage] = useState(null);
 
   // Import State
-  const [importPreview, setImportPreview] = useState(null); // { isValid, preview, parsed, rawJson }
+  const [importPreview, setImportPreview] = useState(null);
   const [importStatus, setImportStatus] = useState(null);
   const [showImportConfirm, setShowImportConfirm] = useState(false);
-  const fileRef = useRef();
+  const fileRef = useRef(null);
 
-  // Migration State
+  // Migration & Recovery State
   const [migrationFeedback, setMigrationFeedback] = useState(null);
   const [previewData, setPreviewData] = useState(null);
   const [showMigrationPreview, setShowMigrationPreview] = useState(false);
   const [rollbackStatus, setRollbackStatus] = useState(null);
 
   // Review Items State
-  const attentionData = store?.getAttentionItems ? store.getAttentionItems() : null;
   const pendingAlarms = store?.state?.pendingAlarms || [];
   const migratedAlarms = (store?.state?.pendingReviews?.migratedAlarms || []).filter(
     (a) => a.reviewStatus === 'PENDING_USER_REVIEW'
@@ -63,16 +61,24 @@ export default function SettingsTab({
   const unclassifiedEvents = (store?.state?.transactions || []).filter(
     (t) => t.kind === 'LEGACY_UNCLASSIFIED' && t.reviewRequired
   );
-
-  const themePalettes = {
-    fantasy: ['#0b0d12', '#60a5fa', '#242c3d'],
-    elden: ['#0a0a0c', '#d4af37', '#2d2a22'],
-    cyber: ['#070913', '#38bdf8', '#818cf8'],
-    pixel: ['#121214', '#22c55e', '#2a2a30'],
-  };
+  const totalReviewItems = pendingAlarms.length + migratedAlarms.length + unclassifiedEvents.length;
 
   // ── Handlers: Preferences ──
-  const handleSavePreferences = () => {
+  const handleCurrencyChange = (newCurrency) => {
+    setCurrency(newCurrency);
+    const parsedBudget = parseFloat(budget) || 0;
+    if (onUpdate) {
+      onUpdate({
+        currency: newCurrency,
+        monthlyBudget: Math.max(0, parsedBudget),
+      });
+    }
+    setPrefSavedMessage('Currency updated');
+    setTimeout(() => setPrefSavedMessage(null), 2500);
+  };
+
+  const handleSaveBudget = (e) => {
+    e?.preventDefault();
     const parsedBudget = parseFloat(budget) || 0;
     if (onUpdate) {
       onUpdate({
@@ -80,8 +86,8 @@ export default function SettingsTab({
         monthlyBudget: Math.max(0, parsedBudget),
       });
     }
-    setPrefSavedMessage('Preferences updated successfully!');
-    setTimeout(() => setPrefSavedMessage(null), 3000);
+    setPrefSavedMessage('Budget saved');
+    setTimeout(() => setPrefSavedMessage(null), 2500);
   };
 
   // ── Handlers: Export ──
@@ -114,25 +120,25 @@ export default function SettingsTab({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `pocketledger-v1-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `pocketledger-previous-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  // ── Handlers: Safe Import with Validation & Confirmation ──
+  // ── Handlers: Safe Import ──
   const handleFileSelect = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = () => {
-      const jsonContent = reader.result;
+      const jsonContent = String(reader.result || '');
       const val = store?.previewImport
         ? store.previewImport(jsonContent)
         : { isValid: true, preview: { schemaVersion: 2, transactionCount: 0, peopleCount: 0, warnings: [] }, parsed: null };
 
       if (!val.isValid) {
-        setImportStatus({ type: 'error', text: `Import validation failed: ${val.error}` });
+        setImportStatus({ type: 'error', text: `Import failed: ${val.error}` });
         return;
       }
 
@@ -154,7 +160,7 @@ export default function SettingsTab({
     if (res.success) {
       setImportStatus({
         type: 'success',
-        text: res.message || 'Data restored successfully! Pre-import snapshot safely retained.',
+        text: res.message || 'Backup restored successfully.',
       });
     } else {
       setImportStatus({
@@ -172,9 +178,9 @@ export default function SettingsTab({
     if (store?.rollbackPreImport) {
       const res = store.rollbackPreImport();
       if (res.success) {
-        setImportStatus({ type: 'success', text: 'Restored pre-import snapshot successfully.' });
+        setImportStatus({ type: 'success', text: 'Pre-import backup restored.' });
       } else {
-        setImportStatus({ type: 'error', text: res.error || 'Failed to rollback' });
+        setImportStatus({ type: 'error', text: res.error || 'Failed to restore pre-import backup.' });
       }
       setTimeout(() => setImportStatus(null), 4000);
     }
@@ -195,31 +201,31 @@ export default function SettingsTab({
       if (res.success) {
         setMigrationFeedback({
           type: 'success',
-          text: 'Upgrade complete! Your database is now operating with the Canonical v2 Financial Engine.',
+          text: 'Database update completed successfully.',
         });
       } else {
         setMigrationFeedback({
           type: 'error',
-          text: `Upgrade failed: ${res.error}`,
+          text: `Update failed: ${res.error}`,
         });
       }
     } catch (err) {
       setMigrationFeedback({
         type: 'error',
-        text: `Upgrade error: ${err.message}`,
+        text: `Update error: ${err.message}`,
       });
     }
   };
 
   const handleRollbackV1 = () => {
     if (!onRollbackMigration) return;
-    if (window.confirm('Are you sure you want to rollback to the Schema v1 snapshot? Any transactions created after migration will be replaced by the pre-migration snapshot.')) {
+    if (window.confirm('Restore database from the pre-update backup? Any transactions recorded after the update will be replaced.')) {
       const res = onRollbackMigration();
       if (res.success) {
-        setRollbackStatus('Database restored to Schema v1 snapshot successfully.');
+        setRollbackStatus('Database restored from previous backup.');
         setTimeout(() => setRollbackStatus(null), 4000);
       } else {
-        setRollbackStatus(`Rollback failed: ${res.error}`);
+        setRollbackStatus(`Restore failed: ${res.error}`);
         setTimeout(() => setRollbackStatus(null), 4000);
       }
     }
@@ -239,377 +245,354 @@ export default function SettingsTab({
   };
 
   return (
-    <div className="animate-fade-in transition-all duration-300 pb-16">
-      <header className="px-2 sm:px-0 pt-5 pb-4">
+    <div className="animate-fade-in transition-all duration-200 pb-28">
+      {/* ── Header ── */}
+      <header className="pt-4 pb-3">
         <h1 className="text-xl font-bold tracking-tight text-text-primary">Settings</h1>
-        <p className="text-xs text-text-muted mt-0.5">Preferences, backups, and migration recovery</p>
+        <p className="text-xs text-text-muted mt-0.5">Preferences and data management</p>
       </header>
 
-      <div className="px-2 sm:px-0 space-y-4">
-        {/* ── SECTION 1: PREFERENCES ── */}
-        <div className="theme-card p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <Coins size={16} className="text-accent" />
-            <h2 className="text-xs font-bold text-accent uppercase tracking-wider">
-              Preferences
-            </h2>
-          </div>
+      <div className="space-y-5">
+        {/* ── 1. Preferences ── */}
+        <section className="theme-card p-4 sm:p-5 space-y-4">
+          <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+            Preferences
+          </h2>
 
-          {/* Currency Selection */}
-          <div className="space-y-1.5">
-            <label className="text-xs text-text-muted block">Currency Symbol</label>
-            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-              {CURRENCY_OPTIONS.map((sym) => (
-                <button
-                  key={sym}
-                  type="button"
-                  onClick={() => setCurrency(sym)}
-                  className={`py-2 rounded-xl border text-xs font-bold transition-all ${
-                    currency === sym
-                      ? 'border-accent bg-accent/20 text-text-primary'
-                      : 'border-[var(--border-color)] bg-secondary/40 text-text-muted hover:border-accent/40'
-                  }`}
-                >
-                  {sym}
-                </button>
-              ))}
+          {/* Currency row */}
+          <div className="flex items-center justify-between gap-4 py-1">
+            <div className="min-w-0">
+              <label htmlFor="currency-select" className="text-sm font-medium text-text-primary block">
+                Currency
+              </label>
+              <p className="text-xs text-text-muted truncate">Display symbol used across the app</p>
+            </div>
+            <div className="w-44 flex-shrink-0">
+              <select
+                id="currency-select"
+                value={currency}
+                onChange={(e) => handleCurrencyChange(e.target.value)}
+                className="!py-2 !px-3 !text-xs !min-h-[38px] bg-secondary border border-[var(--border-color)] rounded-lg text-text-primary font-medium"
+              >
+                {CURRENCY_OPTIONS.map((opt) => (
+                  <option key={opt.symbol} value={opt.symbol}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {/* Monthly Budget */}
-          <div className="space-y-1.5">
-            <label className="text-xs text-text-muted block">Monthly Consumption Budget ({currency})</label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                placeholder="e.g. 15000 (0 for no limit)"
-                value={budget}
-                onChange={(e) => setBudget(e.target.value)}
-                className="flex-1 !py-2.5 !text-sm"
-              />
+          {/* Monthly Budget row */}
+          <div className="pt-3 border-t border-[var(--border-color)]/60">
+            <label htmlFor="budget-input" className="text-sm font-medium text-text-primary block mb-1">
+              Monthly spending limit
+            </label>
+            <form onSubmit={handleSaveBudget} className="flex gap-2 items-center">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-text-muted">
+                  {currency}
+                </span>
+                <input
+                  id="budget-input"
+                  type="number"
+                  min="0"
+                  placeholder="0 (no limit set)"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                  className="!py-2 !pl-8 !pr-3 !text-sm !min-h-[38px] tabular-nums"
+                />
+              </div>
               <button
-                type="button"
-                onClick={handleSavePreferences}
-                className="btn btn-primary px-4 text-xs font-semibold"
+                type="submit"
+                className="btn btn-primary text-xs !py-2 px-4 !min-h-[38px] font-medium"
               >
                 Save
               </button>
-            </div>
-            <p className="text-[10px] text-text-muted">
-              Applies only to your personal consumption. Gross lending and transfers are excluded.
-            </p>
+            </form>
           </div>
 
           {prefSavedMessage && (
-            <p className="text-xs text-emerald-400 bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
+            <p className="text-xs text-emerald-400 bg-emerald-500/10 py-1.5 px-2.5 rounded-lg border border-emerald-500/20">
               {prefSavedMessage}
             </p>
           )}
+        </section>
 
-          {/* Visual Theme Selector */}
-          <div className="space-y-2 pt-2 border-t border-[var(--border-color)]/60">
-            <div className="flex items-center gap-1.5">
-              <Palette size={14} className="text-accent" />
-              <span className="text-xs font-bold text-text-secondary">Visual Theme</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              {themes.map((t) => {
-                const isSelected = theme === t.id;
-                const palette = themePalettes[t.id] || [];
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => setTheme(t.id)}
-                    className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all active:scale-95 ${
-                      isSelected
-                        ? 'border-accent bg-accent/15'
-                        : 'border-[var(--border-color)] bg-secondary/40 hover:border-accent/40'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex gap-1.5">
-                        {palette.map((color, i) => (
-                          <span
-                            key={i}
-                            className="w-3 h-3 rounded-full border border-black/20"
-                            style={{ backgroundColor: color }}
-                          />
-                        ))}
-                      </div>
-                      {isSelected && (
-                        <span className="w-4 h-4 rounded-full bg-accent flex items-center justify-center text-[10px] text-white">
-                          <Check size={11} strokeWidth={3} />
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-text-primary">{t.name}</p>
-                      <p className="text-[10px] text-text-muted line-clamp-1">{t.desc}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* ── SECTION 2: DATA MANAGEMENT & BACKUPS ── */}
-        <div className="theme-card p-5 space-y-3.5">
-          <div className="flex items-center gap-2">
-            <Download size={16} className="text-accent" />
-            <h2 className="text-xs font-bold text-accent uppercase tracking-wider">
+        {/* ── 2. Data Management (Compact Action Rows) ── */}
+        <section className="theme-card divide-y divide-[var(--border-color)]/60 overflow-hidden">
+          <div className="p-4 sm:p-5 pb-3">
+            <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
               Data Management
             </h2>
+            <p className="text-xs text-text-muted mt-0.5">
+              Backups and transaction exports
+            </p>
           </div>
-          <p className="text-xs text-text-muted leading-relaxed">
-            All data resides offline in your device storage. You can export complete backups anytime.
-          </p>
 
-          <div className="space-y-2">
-            <button
-              onClick={handleExportJSON}
-              className="btn btn-ghost w-full text-xs py-2.5 flex items-center justify-center gap-2 border border-[var(--border-color)]"
-            >
-              <Download size={14} /> Export JSON Ledger Backup
-            </button>
+          {/* Row 1: Backup Ledger */}
+          <button
+            type="button"
+            onClick={handleExportJSON}
+            className="w-full p-4 flex items-center justify-between text-left hover:bg-secondary/40 transition-colors group"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-text-muted group-hover:text-text-primary transition-colors flex-shrink-0">
+                <Download size={16} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-text-primary truncate">Backup ledger</p>
+                <p className="text-xs text-text-muted truncate">Download complete JSON ledger backup</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-text-muted group-hover:text-text-primary transition-colors flex-shrink-0 ml-2" />
+          </button>
 
-            <button
-              onClick={handleExportCSV}
-              className="btn btn-ghost w-full text-xs py-2.5 flex items-center justify-center gap-2 border border-[var(--border-color)]"
-            >
-              <FileText size={14} /> Export CSV Spreadsheet
-            </button>
+          {/* Row 2: Export CSV */}
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="w-full p-4 flex items-center justify-between text-left hover:bg-secondary/40 transition-colors group"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-text-muted group-hover:text-text-primary transition-colors flex-shrink-0">
+                <FileText size={16} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-text-primary truncate">Export spreadsheet</p>
+                <p className="text-xs text-text-muted truncate">Download transaction activity as CSV</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-text-muted group-hover:text-text-primary transition-colors flex-shrink-0 ml-2" />
+          </button>
 
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="btn btn-primary w-full text-xs py-2.5 flex items-center justify-center gap-2 font-semibold"
-            >
-              <Upload size={14} /> Import & Restore Backup
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".json"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-          </div>
+          {/* Row 3: Restore Backup */}
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="w-full p-4 flex items-center justify-between text-left hover:bg-secondary/40 transition-colors group"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-text-muted group-hover:text-text-primary transition-colors flex-shrink-0">
+                <Upload size={16} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-text-primary truncate">Restore backup</p>
+                <p className="text-xs text-text-muted truncate">Import JSON backup with safety preview</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-text-muted group-hover:text-text-primary transition-colors flex-shrink-0 ml-2" />
+          </button>
+
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".json"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
 
           {/* Pre-import Rollback if safety backup exists */}
           {store?.hasPreImportBackup && store.hasPreImportBackup() && (
-            <div className="pt-2 border-t border-[var(--border-color)] space-y-1">
-              <button
-                onClick={handleRollbackPreImport}
-                className="btn btn-ghost w-full text-xs py-2 text-text-muted hover:text-text-primary border border-white/5"
-              >
-                <RotateCcw size={13} /> Restore Pre-Import Safety Snapshot
-              </button>
-            </div>
-          )}
-
-          {importStatus && (
-            <p className={`text-xs p-2.5 rounded-lg border ${
-              importStatus.type === 'error'
-                ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-            }`}>
-              {importStatus.text}
-            </p>
-          )}
-        </div>
-
-        {/* ── SECTION 3: MIGRATION & DISASTER RECOVERY ── */}
-        <div className="theme-card p-5 space-y-3.5">
-          <div className="flex items-center gap-2">
-            <ShieldCheck size={16} className="text-accent" />
-            <h2 className="text-xs font-bold text-accent uppercase tracking-wider">
-              Financial Engine & Recovery
-            </h2>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-secondary/50 border border-[var(--border-color)] space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-text-primary">Engine Architecture</span>
-              <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
-                migrationStatus === 'COMPLETED'
-                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                  : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-              }`}>
-                {migrationStatus === 'COMPLETED' ? 'Canonical v2' : 'Schema v1 Active'}
-              </span>
-            </div>
-            <p className="text-[11px] text-text-muted leading-relaxed">
-              {migrationStatus === 'COMPLETED'
-                ? 'All financial calculations execute with exact integer-paise precision, chronological repayment validation, and conservation invariants.'
-                : 'Your database is currently running legacy schema v1. An automated, non-destructive upgrade to canonical v2 is ready.'}
-            </p>
-          </div>
-
-          {/* Upgrade Banner when v1 is active */}
-          {migrationStatus === 'AVAILABLE' && (
-            <div className="p-4 rounded-xl border border-amber-500/40 bg-amber-500/10 space-y-3">
-              <div className="flex items-center gap-2 text-amber-300 text-xs font-bold">
-                <AlertTriangle size={15} /> Database Upgrade Ready
-              </div>
-              <p className="text-[11px] text-amber-200/90 leading-relaxed">
-                Upgrading converts transactions into canonical events with exact integer precision. A pre-migration backup is automatically verified before state modification.
-              </p>
-
-              {showMigrationPreview && previewData && (
-                <div className="p-3 rounded-lg bg-black/30 text-xs space-y-1 border border-white/5">
-                  <p className="text-text-muted">Transactions to convert: {previewData.transactionCount}</p>
-                  <p className="text-text-muted">Directory counterparties: {previewData.peopleCount}</p>
-                  {previewData.warnings?.length > 0 && (
-                    <p className="text-amber-400">{previewData.warnings.length} items flagged for review.</p>
-                  )}
+            <button
+              type="button"
+              onClick={handleRollbackPreImport}
+              className="w-full p-4 flex items-center justify-between text-left hover:bg-secondary/40 transition-colors group bg-amber-500/5"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400 flex-shrink-0">
+                  <RotateCcw size={16} />
                 </div>
-              )}
-
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={handleExecuteMigration}
-                  className="btn btn-primary text-xs py-2 px-3 font-semibold flex items-center gap-1.5"
-                >
-                  <ShieldCheck size={14} /> Upgrade Now
-                </button>
-                <button
-                  onClick={handleToggleMigrationPreview}
-                  className="btn btn-ghost text-xs py-2 px-3 border border-[var(--border-color)]"
-                >
-                  {showMigrationPreview ? 'Hide Preview' : 'View Preview'}
-                </button>
-                <button
-                  onClick={handleDownloadV1Backup}
-                  className="btn btn-ghost text-xs py-2 px-3 text-text-muted hover:text-text-primary"
-                >
-                  <Download size={13} /> Download v1 Backup
-                </button>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-amber-300 truncate">Restore pre-import backup</p>
+                  <p className="text-xs text-text-muted truncate">Revert to the state before the last import</p>
+                </div>
               </div>
-
-              {migrationFeedback && (
-                <p className={`text-xs ${migrationFeedback.type === 'error' ? 'text-red-400' : 'text-emerald-400'}`}>
-                  {migrationFeedback.text}
-                </p>
-              )}
-            </div>
+              <ChevronRight size={16} className="text-amber-400 flex-shrink-0 ml-2" />
+            </button>
           )}
+        </section>
 
-          {/* Rollback Options when v1 backup is retained */}
-          {hasRollbackBackup && (
-            <div className="space-y-2 pt-2 border-t border-[var(--border-color)]">
-              <button
-                onClick={handleDownloadV1Backup}
-                className="btn btn-ghost w-full text-xs py-2 text-text-muted hover:text-text-primary border border-white/5"
-              >
-                <Download size={13} /> Download Original Pre-Migration Backup
-              </button>
-              <button
-                onClick={handleRollbackV1}
-                className="btn btn-ghost w-full text-xs py-2 text-red-400 hover:text-red-300 border border-red-500/20"
-              >
-                <RotateCcw size={13} /> Rollback to Schema v1 Backup
-              </button>
+        {importStatus && (
+          <p className={`text-xs p-3 rounded-lg border ${
+            importStatus.type === 'error'
+              ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+              : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+          }`}>
+            {importStatus.text}
+          </p>
+        )}
+
+        {/* ── 3. Database Update Ready (shown only when available) ── */}
+        {migrationStatus === 'AVAILABLE' && (
+          <section className="theme-card p-4 sm:p-5 space-y-3 border-amber-500/30">
+            <div className="flex items-center gap-2 text-amber-300 text-xs font-semibold">
+              <AlertTriangle size={15} /> Database Update Available
             </div>
-          )}
-
-          {rollbackStatus && (
-            <p className="text-xs text-emerald-400 bg-emerald-500/10 p-2.5 rounded-lg border border-emerald-500/20">
-              {rollbackStatus}
+            <p className="text-xs text-text-muted leading-relaxed">
+              An update is ready to upgrade your ledger data. A pre-update safety backup will be created automatically.
             </p>
-          )}
-        </div>
 
-        {/* ── SECTION 4: LEGACY DATA REVIEW ── */}
-        {(pendingAlarms.length > 0 || migratedAlarms.length > 0 || unclassifiedEvents.length > 0) && (
-          <div className="theme-card p-5 space-y-3.5 border border-amber-500/30">
+            {showMigrationPreview && previewData && (
+              <div className="p-3 rounded-lg bg-secondary/60 text-xs space-y-1 border border-[var(--border-color)]">
+                <p className="text-text-muted">Transactions to update: {previewData.transactionCount}</p>
+                <p className="text-text-muted">Directory contacts: {previewData.peopleCount}</p>
+                {previewData.warnings?.length > 0 && (
+                  <p className="text-amber-400">{previewData.warnings.length} items flagged for review.</p>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleExecuteMigration}
+                className="btn btn-primary text-xs !py-2 px-3.5 font-medium flex items-center gap-1.5"
+              >
+                <ShieldCheck size={14} /> Update Now
+              </button>
+              <button
+                type="button"
+                onClick={handleToggleMigrationPreview}
+                className="btn btn-ghost text-xs !py-2 px-3 font-medium"
+              >
+                {showMigrationPreview ? 'Hide Summary' : 'View Summary'}
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadV1Backup}
+                className="btn btn-ghost text-xs !py-2 px-3 font-medium text-text-muted hover:text-text-primary"
+              >
+                <Download size={13} /> Download Backup
+              </button>
+            </div>
+
+            {migrationFeedback && (
+              <p className={`text-xs mt-2 ${migrationFeedback.type === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                {migrationFeedback.text}
+              </p>
+            )}
+          </section>
+        )}
+
+        {/* ── 4. Previous Backup Available (shown only when rollback backup exists) ── */}
+        {hasRollbackBackup && (
+          <section className="theme-card p-4 sm:p-5 space-y-3">
+            <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+              Previous Backup Available
+            </h2>
+            <p className="text-xs text-text-muted leading-relaxed">
+              A backup created before the last database update is stored locally on this device.
+            </p>
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleDownloadV1Backup}
+                className="btn btn-ghost text-xs !py-2 px-3 font-medium"
+              >
+                <Download size={13} /> Download Backup
+              </button>
+              <button
+                type="button"
+                onClick={handleRollbackV1}
+                className="btn btn-ghost text-xs !py-2 px-3 text-rose-400 hover:text-rose-300 border-rose-500/20 font-medium"
+              >
+                <RotateCcw size={13} /> Restore Previous Data
+              </button>
+            </div>
+
+            {rollbackStatus && (
+              <p className="text-xs text-emerald-400 bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
+                {rollbackStatus}
+              </p>
+            )}
+          </section>
+        )}
+
+        {/* ── 5. Records Requiring Review (shown only when review items exist) ── */}
+        {totalReviewItems > 0 && (
+          <section className="theme-card p-4 sm:p-5 space-y-3 border-amber-500/30">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <AlertTriangle size={16} className="text-amber-400" />
-                <h2 className="text-xs font-bold text-amber-300 uppercase tracking-wider">
-                  Legacy Data Review Queue
+                <AlertTriangle size={15} className="text-amber-400" />
+                <h2 className="text-xs font-semibold text-amber-300 uppercase tracking-wider">
+                  Records Requiring Review
                 </h2>
               </div>
-              <span className="text-[11px] font-bold text-amber-400">
-                {pendingAlarms.length + migratedAlarms.length + unclassifiedEvents.length} items
+              <span className="text-xs font-medium text-amber-400">
+                {totalReviewItems} {totalReviewItems === 1 ? 'item' : 'items'}
               </span>
             </div>
             <p className="text-xs text-text-muted leading-relaxed">
-              Historical records requiring user confirmation. Old Give/Take transactions are never silently inferred as expenses or loans.
+              Historical transactions that require confirmation.
             </p>
 
             <div className="space-y-2 pt-1">
-              {/* Alarms awaiting review */}
               {[...pendingAlarms, ...migratedAlarms].map((alarm) => (
                 <div
                   key={alarm.id}
-                  className="p-3 rounded-xl bg-secondary/40 border border-[var(--border-color)] flex items-center justify-between gap-3 text-xs"
+                  className="p-3 rounded-lg bg-secondary/50 border border-[var(--border-color)] flex items-center justify-between gap-3 text-xs"
                 >
                   <div className="min-w-0">
-                    <p className="font-bold text-text-primary truncate">
+                    <p className="font-medium text-text-primary truncate">
                       {alarm.personName || 'Contact'}: {currency}{alarm.amount || (alarm.amountPaise ? alarm.amountPaise / 100 : 0)}
                     </p>
-                    <p className="text-[10px] text-text-muted">
-                      Alarm record: {alarm.direction === 'settled' ? 'Settlement intent' : 'Lending intent'}
+                    <p className="text-[11px] text-text-muted">
+                      {alarm.direction === 'settled' ? 'Settlement intent' : 'Lending intent'}
                     </p>
                   </div>
                   <button
+                    type="button"
                     onClick={() => handleResolveAlarm(alarm.id)}
-                    className="btn btn-ghost text-xs py-1 px-2.5 border border-[var(--border-color)] text-text-muted hover:text-text-primary"
+                    className="btn btn-ghost text-xs !py-1 px-2.5 text-text-muted hover:text-text-primary"
                   >
                     Dismiss
                   </button>
                 </div>
               ))}
 
-              {/* Unclassified events */}
               {unclassifiedEvents.map((evt) => (
                 <div
                   key={evt.id}
-                  className="p-3 rounded-xl bg-secondary/40 border border-[var(--border-color)] flex items-center justify-between gap-3 text-xs"
+                  className="p-3 rounded-lg bg-secondary/50 border border-[var(--border-color)] flex items-center justify-between gap-3 text-xs"
                 >
                   <div className="min-w-0">
-                    <p className="font-bold text-text-primary truncate">
+                    <p className="font-medium text-text-primary truncate">
                       {evt.description || 'Historical Record'}: {currency}{evt.amountPaise / 100}
                     </p>
-                    <p className="text-[10px] text-text-muted">
+                    <p className="text-[11px] text-text-muted">
                       Type: {evt.legacyType} · Date: {evt.date}
                     </p>
                   </div>
                   <button
+                    type="button"
                     onClick={() => handleMarkTransactionReviewed(evt.id)}
-                    className="btn btn-ghost text-xs py-1 px-2.5 border border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+                    className="btn btn-ghost text-xs !py-1 px-2.5 border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
                   >
-                    Mark Reviewed
+                    Confirm
                   </button>
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* ── SECTION 5: ABOUT ── */}
-        <div className="theme-card p-5 space-y-2">
-          <div className="flex items-center gap-2">
-            <Info size={16} className="text-accent" />
-            <h2 className="text-xs font-bold text-accent uppercase tracking-wider">
-              About PocketLedger
-            </h2>
-          </div>
-          <p className="text-xs text-text-muted leading-relaxed">
-            PocketLedger v2.0 — Offline-first personal expense tracker & peer ledger.
-            Engineered with strict zero-loss integer-paise accounting and verifiable repayment conservation.
-          </p>
+        {/* ── 6. Understated Privacy Note ── */}
+        <div className="pt-2 text-center text-xs text-text-muted">
+          <p className="font-medium text-text-secondary">PocketLedger</p>
+          <p className="mt-0.5">All financial records are stored locally on your device.</p>
         </div>
       </div>
 
       {/* ── Import Confirmation & Preview Modal ── */}
       {showImportConfirm && importPreview && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-card border border-[var(--border-color)] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-text-primary">Confirm Ledger Import</h3>
+              <h3 className="text-base font-semibold text-text-primary">Confirm Ledger Import</h3>
               <button
+                type="button"
                 onClick={() => {
                   setShowImportConfirm(false);
                   setImportPreview(null);
@@ -622,22 +605,18 @@ export default function SettingsTab({
 
             <div className="p-3.5 rounded-xl bg-secondary/50 border border-[var(--border-color)] space-y-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-text-muted">Schema Version</span>
-                <span className="font-bold text-text-primary">v{importPreview.preview.schemaVersion}</span>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-text-muted">Transactions to Import</span>
-                <span className="font-bold text-text-primary">{importPreview.preview.transactionCount}</span>
+                <span className="font-medium text-text-primary">{importPreview.preview.transactionCount}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-text-muted">People in Directory</span>
-                <span className="font-bold text-text-primary">{importPreview.preview.peopleCount}</span>
+                <span className="font-medium text-text-primary">{importPreview.preview.peopleCount}</span>
               </div>
             </div>
 
             {importPreview.preview.warnings.length > 0 && (
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 space-y-1">
-                <p className="font-bold">Warnings:</p>
+                <p className="font-semibold">Notice:</p>
                 {importPreview.preview.warnings.map((w, idx) => (
                   <p key={idx} className="text-[11px] leading-snug">{w}</p>
                 ))}
@@ -646,22 +625,24 @@ export default function SettingsTab({
 
             <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-200 leading-relaxed">
               <ShieldCheck size={14} className="inline mr-1 text-blue-300" />
-              A safety backup of your active ledger data will be created automatically before replacement.
+              A safety backup of your active ledger will be created automatically before replacement.
             </div>
 
             <div className="flex gap-2 pt-1">
               <button
+                type="button"
                 onClick={() => {
                   setShowImportConfirm(false);
                   setImportPreview(null);
                 }}
-                className="btn btn-ghost flex-1 text-xs py-2.5"
+                className="btn btn-ghost flex-1 text-xs !py-2.5"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleExecuteImport}
-                className="btn btn-primary flex-1 text-xs py-2.5 font-semibold"
+                className="btn btn-primary flex-1 text-xs !py-2.5 font-medium"
               >
                 Confirm & Restore
               </button>

@@ -18,123 +18,31 @@
 }
 
 /* ─────────────────────────────────────────────────────────────
-   GLOBAL CSS VARIABLES & 4 MATURE FINTECH THEMES
-   Themes: fantasy | elden | cyber | pixel
+   UNIVERSAL DESIGN SYSTEM: GRAPHITE
+   Restrained, modern, professional fintech aesthetic
    ───────────────────────────────────────────────────────────── */
 
-:root {
-  /* Default: Fantasy Theme (Cold Charcoal / Slate & Steel Blue) */
+:root,
+[data-theme] {
   --bg-primary: #0b0d12;
-  --bg-secondary: #12161f;
-  --bg-card: #161b26;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --accent-color: #60a5fa;
-  --accent-dim: #3b82f6;
-  --accent-glow: rgba(96, 165, 250, 0.15);
-  --border-color: #242c3d;
+  --bg-secondary: #12151c;
+  --bg-card: #171b24;
+  --text-primary: #f3f5f8;
+  --text-secondary: #9aa3af;
+  --text-muted: #647082;
+  --accent-color: #5b93fa;
+  --accent-dim: #386cd1;
+  --accent-glow: rgba(91, 147, 250, 0.15);
+  --border-color: #232a38;
   --border-radius-card: 14px;
   --border-radius-btn: 10px;
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.25);
   --owed-green-bg: rgba(16, 185, 129, 0.1);
   --owed-green-text: #10b981;
   --owed-red-bg: rgba(244, 63, 94, 0.1);
   --owed-red-text: #f43f5e;
-  --money-spent-color: #f1f5f9;
-}
-
-/* ── 1. FANTASY THEME (Cold Charcoal / Slate & Steel Blue) ── */
-[data-theme="fantasy"] {
-  --bg-primary: #0b0d12;
-  --bg-secondary: #12161f;
-  --bg-card: #161b26;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --accent-color: #60a5fa;
-  --accent-dim: #3b82f6;
-  --accent-glow: rgba(96, 165, 250, 0.15);
-  --border-color: #242c3d;
-  --border-radius-card: 14px;
-  --border-radius-btn: 10px;
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.25);
-  --owed-green-bg: rgba(16, 185, 129, 0.1);
-  --owed-green-text: #10b981;
-  --owed-red-bg: rgba(244, 63, 94, 0.1);
-  --owed-red-text: #f43f5e;
-  --money-spent-color: #f1f5f9;
-}
-
-/* ── 2. ELDEN THEME (Obsidian & Muted Warm Gold) ── */
-[data-theme="elden"] {
-  --bg-primary: #0a0a0c;
-  --bg-secondary: #121216;
-  --bg-card: #18181e;
-  --text-primary: #f5eedc;
-  --text-secondary: #a89f8d;
-  --text-muted: #6e6758;
-  --accent-color: #d4af37;
-  --accent-dim: #aa8c2c;
-  --accent-glow: rgba(212, 175, 55, 0.15);
-  --border-color: #2d2a22;
-  --border-radius-card: 14px;
-  --border-radius-btn: 10px;
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
-  --owed-green-bg: rgba(16, 185, 129, 0.1);
-  --owed-green-text: #10b981;
-  --owed-red-bg: rgba(244, 63, 94, 0.1);
-  --owed-red-text: #f43f5e;
-  --money-spent-color: #f5eedc;
-}
-
-/* ── 3. CYBER THEME (Deep Navy, Controlled Cyan & Violet) ── */
-[data-theme="cyber"] {
-  --bg-primary: #070913;
-  --bg-secondary: #0d1224;
-  --bg-card: #131b33;
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --accent-color: #38bdf8;
-  --accent-dim: #818cf8;
-  --accent-glow: rgba(56, 189, 248, 0.15);
-  --border-color: #1e293b;
-  --border-radius-card: 14px;
-  --border-radius-btn: 10px;
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.35);
-  --owed-green-bg: rgba(16, 185, 129, 0.1);
-  --owed-green-text: #10b981;
-  --owed-red-bg: rgba(244, 63, 94, 0.1);
-  --owed-red-text: #f43f5e;
-  --money-spent-color: #f8fafc;
-}
-
-/* ── 4. PIXEL THEME (Clean Minimalist Charcoal & Emerald) ── */
-[data-theme="pixel"] {
-  --bg-primary: #121214;
-  --bg-secondary: #1a1a1e;
-  --bg-card: #222228;
-  --text-primary: #ffffff;
-  --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
-  --accent-color: #22c55e;
-  --accent-dim: #16a34a;
-  --accent-glow: rgba(34, 197, 94, 0.15);
-  --border-color: #33333d;
-  --border-radius-card: 6px;
-  --border-radius-btn: 6px;
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.25);
-  --owed-green-bg: rgba(34, 197, 94, 0.1);
-  --owed-green-text: #22c55e;
-  --owed-red-bg: rgba(239, 68, 68, 0.1);
-  --owed-red-text: #ef4444;
-  --money-spent-color: #ffffff;
+  --money-spent-color: #f3f5f8;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -157,11 +65,6 @@
   border-width: 1px;
   border-style: solid;
   border-color: var(--border-color);
-}
-
-/* Smooth transition when switching themes */
-html, body, #root, .theme-transition {
-  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
 }
 
 /* Base styles */
@@ -206,14 +109,6 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-}
-
-/* Optional pixel heading accent for Pixel theme */
-[data-theme="pixel"] h1,
-[data-theme="pixel"] .font-pixel {
-  font-family: 'Press Start 2P', 'Courier New', monospace;
-  font-size: 0.95rem;
-  letter-spacing: -0.5px;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -272,14 +167,6 @@ body {
   transform: scale(0.93);
 }
 
-[data-theme="elden"] .theme-fab {
-  color: #0a0a0c;
-}
-
-[data-theme="pixel"] .theme-fab {
-  color: #000000;
-}
-
 @media (min-width: 640px) {
   .theme-fab {
     right: max(1.5rem, calc((100vw - 42rem) / 2 + 1rem));
@@ -327,13 +214,6 @@ input::placeholder { color: var(--text-muted); }
 .btn-primary {
   background: var(--accent-color);
   color: #ffffff;
-}
-[data-theme="elden"] .btn-primary {
-  color: #0a0a0c;
-  font-weight: 600;
-}
-[data-theme="pixel"] .btn-primary {
-  color: #000000;
   font-weight: 600;
 }
 .btn-primary:hover { opacity: 0.92; }
@@ -421,11 +301,6 @@ input::placeholder { color: var(--text-muted); }
   overflow-y: auto;
   padding: 20px 20px 28px;
   animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-[data-theme="pixel"] .bottom-sheet {
-  border-radius: 0;
-  border-top: 2px solid var(--border-color);
 }
 
 .bottom-sheet .handle {

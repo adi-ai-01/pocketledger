@@ -523,7 +523,7 @@ export function migrateV1ToV2(legacyState, options = {}) {
   const migratedSettings = {
     currencySymbol: typeof rawSettings.currency === 'string' && rawSettings.currency.trim() ? rawSettings.currency.trim() : '₹',
     monthlyBudgetPaise: budgetConv.isValid ? budgetConv.amountPaise : 0,
-    theme: ['fantasy', 'elden', 'cyber', 'pixel'].includes(rawSettings.theme) ? rawSettings.theme : 'fantasy',
+    theme: ['fantasy', 'elden', 'cyber', 'pixel', 'graphite'].includes(rawSettings.theme) ? rawSettings.theme : (rawSettings.theme || 'graphite'),
   };
 
   // Preserve any custom categories

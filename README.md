@@ -35,12 +35,12 @@ Most personal expense apps either force users to surrender their financial priva
 
 ## Screenshots
 
-<img width="500" height="1000" alt="IMG_20261111_210315" src="https://github.com/user-attachments/assets/eaa8de1e-44c9-45c6-a07b-cf834e63dcab" />
-<img width="500" height="1000" alt="IMG_20261111_210324" src="https://github.com/user-attachments/assets/2572e0b6-3194-4284-8f31-78cf3fb5d120" />
-<img width="500" height="1000" alt="IMG_20261111_210334" src="https://github.com/user-attachments/assets/f17a6ca8-714a-4947-a90c-aaff0ca01bfb" />
-<img width="500" height="1000" alt="IMG_20261111_210344" src="https://github.com/user-attachments/assets/72879108-496d-4746-ba81-6ce714801046" />
-<img width="500" height="1000" alt="IMG_20261111_210356" src="https://github.com/user-attachments/assets/ce522c7a-5a76-4755-8ca8-34bc83c2a2b0" />
-<img width="500" height="1000" alt="IMG_20261111_210408" src="https://github.com/user-attachments/assets/b5755c07-471f-4d97-808d-b47923e34ff6" />
+<img width="300" height="600" alt="IMG_20261111_210315" src="https://github.com/user-attachments/assets/eaa8de1e-44c9-45c6-a07b-cf834e63dcab" />
+<img width="300" height="600" alt="IMG_20261111_210324" src="https://github.com/user-attachments/assets/2572e0b6-3194-4284-8f31-78cf3fb5d120" />
+<img width="300" height="600" alt="IMG_20261111_210334" src="https://github.com/user-attachments/assets/f17a6ca8-714a-4947-a90c-aaff0ca01bfb" />
+<img width="300" height="600" alt="IMG_20261111_210344" src="https://github.com/user-attachments/assets/72879108-496d-4746-ba81-6ce714801046" />
+<img width="300" height="600" alt="IMG_20261111_210356" src="https://github.com/user-attachments/assets/ce522c7a-5a76-4755-8ca8-34bc83c2a2b0" />
+<img width="300" height="600" alt="IMG_20261111_210408" src="https://github.com/user-attachments/assets/b5755c07-471f-4d97-808d-b47923e34ff6" />
 
 ## Getting Started
 

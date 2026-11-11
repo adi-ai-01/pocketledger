@@ -9,6 +9,7 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { isValidUpiId } from '../domain/store-core.js';
+import { isValidPhoneNumber, cleanPhoneNumber } from '../domain/upi-qr.js';
 import PersonDetailView from './PersonDetailView.jsx';
 
 export default function PeopleTab({
@@ -30,6 +31,7 @@ export default function PeopleTab({
   const [showArchived, setShowArchived] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newPersonName, setNewPersonName] = useState('');
+  const [newPersonPhone, setNewPersonPhone] = useState('');
   const [newPersonUpi, setNewPersonUpi] = useState('');
   const [addError, setAddError] = useState(null);
 
@@ -118,6 +120,13 @@ export default function PeopleTab({
       return;
     }
 
+    // Validate Phone if provided
+    const trimmedPhone = newPersonPhone.trim();
+    if (trimmedPhone && !isValidPhoneNumber(trimmedPhone)) {
+      setAddError('Please enter a valid phone number (10+ digits)');
+      return;
+    }
+
     // Validate UPI ID if provided
     const trimmedUpi = newPersonUpi.trim();
     if (trimmedUpi && !isValidUpiId(trimmedUpi)) {
@@ -126,7 +135,7 @@ export default function PeopleTab({
     }
 
     if (onAddPerson) {
-      const res = onAddPerson({ name: trimmedName, upiId: trimmedUpi });
+      const res = onAddPerson({ name: trimmedName, upiId: trimmedUpi, phone: cleanPhoneNumber(trimmedPhone) });
       if (res && res.success === false) {
         setAddError(res.error || 'Failed to add person');
         return;
@@ -134,6 +143,7 @@ export default function PeopleTab({
     }
 
     setNewPersonName('');
+    setNewPersonPhone('');
     setNewPersonUpi('');
     setShowAddModal(false);
   };
@@ -322,6 +332,12 @@ export default function PeopleTab({
                       ) : (
                         <span>{person.transactionCount > 0 ? `${person.transactionCount} transactions` : 'No transactions'}</span>
                       )}
+                      {person.phone && (
+                        <>
+                          <span>·</span>
+                          <span className="text-[11px] text-text-muted">{person.phone}</span>
+                        </>
+                      )}
                       {person.upiId && (
                         <>
                           <span>·</span>
@@ -384,6 +400,20 @@ export default function PeopleTab({
                   className="w-full h-[50px] px-3.5 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
                   placeholder="e.g. Vikram Sharma"
                   autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-text-secondary block mb-1.5">Phone Number (optional)</label>
+                <input
+                  type="tel"
+                  value={newPersonPhone}
+                  onChange={(e) => {
+                    setNewPersonPhone(e.target.value);
+                    setAddError(null);
+                  }}
+                  className="w-full h-[50px] px-3.5 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
+                  placeholder="e.g. +91 98765 43210"
                 />
               </div>
 

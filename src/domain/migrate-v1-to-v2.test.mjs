@@ -1,5 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {
   migrateV1ToV2,
   extractCalendarDate,
@@ -391,10 +392,10 @@ describe('PocketLedger Legacy Data Migration Engine (v1 -> v2)', () => {
     assert.equal(res.success, true);
     const { migratedState } = res;
 
-    // Check settings
+    // Check settings (legacy theme normalized to universal graphite)
     assert.equal(migratedState.settings.currencySymbol, '₹');
     assert.equal(migratedState.settings.monthlyBudgetPaise, 2500000); // ₹25,000 = 2,500,000 paise
-    assert.equal(migratedState.settings.theme, 'elden');
+    assert.equal(migratedState.settings.theme, 'graphite');
 
     // Check balances derived by new calculation engine
     const aliceId = migratedState.people.find((p) => p.name === 'Alice').id;
@@ -425,6 +426,181 @@ describe('PocketLedger Legacy Data Migration Engine (v1 -> v2)', () => {
     assert.equal(res.success, true);
     assert.equal(res.migratedState.schemaVersion, 2);
     assert.equal(res.warnings[0].includes('already Schema v2'), true);
+  });
+
+  // Test 11: Personal Expense Migration Regression Suite
+  test('11. Personal expense migration regression suite', () => {
+    const legacyStateWithPersonalExpenses = {
+      transactions: [
+        // 1. User-paid legacy give with empty person
+        {
+          id: 'pe-empty-give',
+          type: 'give',
+          person: '',
+          amount: 300,
+          category: 'Food',
+          description: 'Solo lunch at cafe',
+          date: '2026-11-02',
+          paymentMethod: 'UPI',
+        },
+        // 2. User-paid legacy give with whitespace-only person
+        {
+          id: 'pe-whitespace-give',
+          type: 'give',
+          person: '   ',
+          amount: 200,
+          category: 'Transport',
+          description: 'Solo auto fare',
+          date: '2026-11-04',
+          paymentMethod: 'CASH',
+        },
+        // 3. Named-person legacy give (must preserve peer loan behavior)
+        {
+          id: 'loan-alice',
+          type: 'give',
+          person: 'Alice',
+          amount: 600,
+          category: 'Other',
+          description: 'Loan to Alice for groceries',
+          date: '2026-11-05',
+        },
+        // 4. Explicit personal_expense record paid by user
+        {
+          id: 'pe-explicit-user',
+          type: 'personal_expense',
+          paidBy: 'user',
+          amount: 450,
+          category: 'Shopping',
+          description: 'Books',
+          date: '2026-11-08',
+          paymentMethod: 'UPI',
+        },
+        // 5. Explicit personal_expense record paid by another person (Bob)
+        {
+          id: 'pe-explicit-bob',
+          type: 'personal_expense',
+          paidBy: 'Bob',
+          amount: 500,
+          category: 'Food',
+          description: 'Dinner covered by Bob',
+          date: '2026-11-10',
+        },
+      ],
+      people: [
+        { id: 'p-alice', name: 'Alice', upiId: 'alice@upi' },
+        { id: 'p-bob', name: 'Bob', upiId: 'bob@upi' },
+      ],
+      categories: ['Food', 'Transport', 'Shopping', 'Other'],
+      settings: { currency: '₹', monthlyBudget: 20000, theme: 'graphite' },
+    };
+
+    const res = migrateV1ToV2(legacyStateWithPersonalExpenses);
+    assert.equal(res.success, true);
+    assert.equal(res.validationErrors.length, 0);
+
+    const { migratedState } = res;
+    const txns = migratedState.transactions;
+
+    // 1. Verify user-paid legacy give with empty person -> EVENT_KINDS.EXPENSE
+    const emptyGiveEvent = txns.find((t) => t.id === 'pe-empty-give');
+    assert.ok(emptyGiveEvent, 'pe-empty-give must be present');
+    assert.equal(emptyGiveEvent.kind, EVENT_KINDS.EXPENSE);
+    assert.equal(emptyGiveEvent.payerId, PARTY_USER);
+    assert.equal(emptyGiveEvent.totalAmountPaise, 30000);
+    assert.equal(emptyGiveEvent.userSharePaise, 30000);
+    assert.deepEqual(emptyGiveEvent.allocations, []);
+    assert.equal(emptyGiveEvent.category, 'Food');
+    assert.equal(emptyGiveEvent.paymentMethod, 'UPI');
+    assert.equal(emptyGiveEvent.metadata.originalType, 'give');
+    assert.equal(emptyGiveEvent.personId, undefined);
+
+    // 2. Verify user-paid legacy give with whitespace-only person -> EVENT_KINDS.EXPENSE
+    const whitespaceGiveEvent = txns.find((t) => t.id === 'pe-whitespace-give');
+    assert.ok(whitespaceGiveEvent, 'pe-whitespace-give must be present');
+    assert.equal(whitespaceGiveEvent.kind, EVENT_KINDS.EXPENSE);
+    assert.equal(whitespaceGiveEvent.payerId, PARTY_USER);
+    assert.equal(whitespaceGiveEvent.totalAmountPaise, 20000);
+    assert.equal(whitespaceGiveEvent.userSharePaise, 20000);
+    assert.deepEqual(whitespaceGiveEvent.allocations, []);
+    assert.equal(whitespaceGiveEvent.paymentMethod, 'CASH');
+    assert.equal(whitespaceGiveEvent.personId, undefined);
+
+    // 3. Verify named-person legacy give preserves peer loan behavior
+    const aliceLoanEvent = txns.find((t) => t.id === 'loan-alice');
+    assert.ok(aliceLoanEvent, 'loan-alice must be present');
+    assert.equal(aliceLoanEvent.kind, EVENT_KINDS.LEGACY_UNCLASSIFIED);
+    assert.equal(aliceLoanEvent.legacyType, 'give');
+    assert.equal(aliceLoanEvent.personId, 'p-alice');
+    assert.equal(aliceLoanEvent.amountPaise, 60000);
+    assert.equal(aliceLoanEvent.reviewRequired, true);
+
+    // 4. Verify explicit personal_expense record paid by user
+    const explicitUserEvent = txns.find((t) => t.id === 'pe-explicit-user');
+    assert.ok(explicitUserEvent, 'pe-explicit-user must be present');
+    assert.equal(explicitUserEvent.kind, EVENT_KINDS.EXPENSE);
+    assert.equal(explicitUserEvent.payerId, PARTY_USER);
+    assert.equal(explicitUserEvent.totalAmountPaise, 45000);
+    assert.equal(explicitUserEvent.userSharePaise, 45000);
+    assert.deepEqual(explicitUserEvent.allocations, []);
+    assert.equal(explicitUserEvent.metadata.originalType, 'personal_expense');
+
+    // 5. Verify explicit personal_expense paid by another person (Bob)
+    const explicitBobEvent = txns.find((t) => t.id === 'pe-explicit-bob');
+    assert.ok(explicitBobEvent, 'pe-explicit-bob must be present');
+    assert.equal(explicitBobEvent.kind, EVENT_KINDS.EXPENSE);
+    assert.equal(explicitBobEvent.payerId, 'p-bob');
+    assert.equal(explicitBobEvent.totalAmountPaise, 50000);
+    assert.equal(explicitBobEvent.userSharePaise, 50000);
+    assert.deepEqual(explicitBobEvent.allocations, []);
+
+    // 6. Verify balances:
+    // Alice balance: +60000 (Alice owes user ₹600 from loan)
+    const aliceBal = computePersonBalance(txns, 'p-alice');
+    assert.equal(aliceBal, 60000);
+
+    // Bob balance: -50000 (User owes Bob ₹500 from the covered personal expense)
+    const bobBal = computePersonBalance(txns, 'p-bob');
+    assert.equal(bobBal, -50000);
+
+    // computeAllBalances check:
+    const allBalances = computeAllBalances(txns);
+    assert.equal(allBalances['p-alice'], 60000);
+    assert.equal(allBalances['p-bob'], -50000);
+    // User-paid expenses must NOT create balance keys for phantom or user parties
+    assert.equal(allBalances[PARTY_USER], undefined);
+    assert.equal(Object.keys(allBalances).length, 2);
+
+    // 7. Verify no synthetic person IDs were created for user-paid personal expenses
+    assert.equal(migratedState.people.length, 2, 'Only Alice and Bob should exist in people directory');
+    assert.deepEqual(
+      migratedState.people.map((p) => p.name).sort(),
+      ['Alice', 'Bob']
+    );
+
+    // 8. Verify personal spending tally contributes each personal expense exactly once:
+    // 30000 (pe-empty-give) + 20000 (pe-whitespace-give) + 45000 (pe-explicit-user) + 50000 (pe-explicit-bob) = 145000 paise
+    // Alice's 60000 loan does NOT count towards personal spending
+    const monthlySpending = computeMonthlyPersonalSpending(txns, 2026, 11);
+    assert.equal(monthlySpending, 145000, 'Monthly spending must exactly equal sum of userSharePaise');
+
+    // 9. Verify demo fixture migration produces original 4 people and their original balances
+    const demoFixtureRaw = fs.readFileSync(new URL('../../test-fixtures/pocketledger-v1-demo.json', import.meta.url), 'utf8');
+    const demoFixture = JSON.parse(demoFixtureRaw);
+    const demoMigRes = migrateV1ToV2(demoFixture);
+
+    assert.equal(demoMigRes.success, true);
+    assert.equal(demoMigRes.validationErrors.length, 0);
+    assert.equal(demoMigRes.migratedState.people.length, 4);
+
+    const aaravId = demoMigRes.migratedState.people.find((p) => p.name === 'Aarav Sharma').id;
+    const diyaId = demoMigRes.migratedState.people.find((p) => p.name === 'Diya Patel').id;
+    const rohanId = demoMigRes.migratedState.people.find((p) => p.name === 'Rohan Verma').id;
+    const ananyaId = demoMigRes.migratedState.people.find((p) => p.name === 'Ananya Iyer').id;
+
+    assert.equal(computePersonBalance(demoMigRes.migratedState.transactions, aaravId), 225000);
+    assert.equal(computePersonBalance(demoMigRes.migratedState.transactions, diyaId), -90000);
+    assert.equal(computePersonBalance(demoMigRes.migratedState.transactions, rohanId), 120000);
+    assert.equal(computePersonBalance(demoMigRes.migratedState.transactions, ananyaId), 220000);
   });
 });
 

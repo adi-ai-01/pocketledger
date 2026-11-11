@@ -3,6 +3,7 @@ import { User, CreditCard, Banknote, HelpCircle, ArrowLeft } from 'lucide-react'
 
 export default function PersonalExpenseForm({
   editTxn,
+  initialAmount = '',
   people = [],
   categories = [],
   settings = {},
@@ -10,7 +11,7 @@ export default function PersonalExpenseForm({
   onBack,
 }) {
   const currency = settings.currency || '₹';
-  const isEdit = !!editTxn;
+  const isEdit = Boolean(editTxn && editTxn.id);
 
   // Initial state derivation
   const initialPaidBy = editTxn?.payer && editTxn.payer !== 'user' ? 'other' : 'user';
@@ -18,7 +19,7 @@ export default function PersonalExpenseForm({
     ? (editTxn.payerName || editTxn.person || '')
     : '';
 
-  const [amount, setAmount] = useState(editTxn ? String(editTxn.amount) : '');
+  const [amount, setAmount] = useState(() => (editTxn ? String(editTxn.amount) : initialAmount ? String(initialAmount) : ''));
   const [description, setDescription] = useState(editTxn?.description || '');
   const [category, setCategory] = useState(editTxn?.category || (categories[0] || 'Food'));
   const [date, setDate] = useState(

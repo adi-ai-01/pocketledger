@@ -26,6 +26,7 @@ import {
   extractCalendarDate,
   defaultIdGenerator,
 } from './migrate-v1-to-v2.js';
+import { cleanPhoneNumber } from './upi-qr.js';
 
 export const PRIMARY_STORAGE_KEY = 'pocketledger_data';
 export const BACKUP_STORAGE_KEY = 'pocketledger_v1_backup';
@@ -90,11 +91,15 @@ export function defaultStateV1() {
  * Core Store Manager class (independently testable with any Storage mock).
  */
 export class StoreCore {
-  constructor({ storage = (typeof localStorage !== 'undefined' ? localStorage : null), idGenerator = defaultIdGenerator } = {}) {
+  constructor({
+    storage = (typeof localStorage !== 'undefined' ? localStorage : null),
+    idGenerator = defaultIdGenerator,
+    initialState = null,
+  } = {}) {
     this.storage = storage;
     this.idGenerator = idGenerator;
     this.listeners = new Set();
-    this.state = this.loadInitialState();
+    this.state = initialState ? structuredClone(initialState) : this.loadInitialState();
   }
 
   subscribe(listener) {
@@ -178,11 +183,32 @@ export class StoreCore {
     }
 
     const preview = migrateV1ToV2(this.state, { idGenerator: this.idGenerator });
+    const paymentAttempts = preview.migratedState ? preview.migratedState.paymentAttempts || [] : [];
+    const unresolvedPaymentAttemptsCount = paymentAttempts.filter((a) => a.isUnresolved).length;
+    const pendingAlarmsCount = preview.migratedState?.pendingReviews?.migratedAlarms?.length || preview.reviewItems?.pendingAlarms?.length || 0;
+    const unclassifiedTransactionsCount = preview.reviewItems?.unclassifiedTransactions?.length || 0;
+    const unverifiedSettlementsCount = preview.reviewItems?.unverifiedSettlements?.length || 0;
+    const ambiguousPeopleCount = preview.reviewItems?.ambiguousPeople?.length || 0;
+    const inconsistentRecordsCount = preview.reviewItems?.inconsistentRecords?.length || 0;
+    const otherReviewItemsCount = ambiguousPeopleCount + inconsistentRecordsCount;
+    const historicalReviewCount = unclassifiedTransactionsCount + unverifiedSettlementsCount + ambiguousPeopleCount + inconsistentRecordsCount;
+    const reviewItemsCount = pendingAlarmsCount + historicalReviewCount;
+
     return {
       isApplicable: true,
       success: preview.success,
       transactionCount: preview.migratedState ? preview.migratedState.transactions.length : 0,
       peopleCount: preview.migratedState ? preview.migratedState.people.length : 0,
+      paymentAttemptsCount: paymentAttempts.length,
+      unresolvedPaymentAttemptsCount,
+      pendingAlarmsCount,
+      unclassifiedTransactionsCount,
+      unverifiedSettlementsCount,
+      ambiguousPeopleCount,
+      inconsistentRecordsCount,
+      otherReviewItemsCount,
+      historicalReviewCount,
+      reviewItemsCount,
       warnings: preview.warnings,
       reviewItems: preview.reviewItems,
       validationErrors: preview.validationErrors,
@@ -343,6 +369,7 @@ export class StoreCore {
 
     return {
       totalSpent: totalSpentPaise / 100,
+      totalSpendingRupees: totalSpentPaise / 100,
       byCategory,
       byDay,
       count: events.filter((e) => e.kind === EVENT_KINDS.EXPENSE && typeof e.date === 'string' && e.date.startsWith(monthPrefix)).length,
@@ -538,6 +565,7 @@ export class StoreCore {
           action: 'adjustment',
           type: 'adjustment',
           person: idToName.get(targetId) || targetId,
+          personId: targetId,
           amount: (isPositive ? 1 : -1) * (e.amountPaise / 100),
           description: e.description,
           category: e.category || 'Adjustment',
@@ -555,6 +583,7 @@ export class StoreCore {
           action: 'unclassified',
           type: e.legacyType,
           person: idToName.get(e.personId) || e.metadata?.legacyPersonName || e.personId,
+          personId: e.personId,
           amount: e.amountPaise / 100,
           description: e.description,
           category: e.category || 'Other',
@@ -587,6 +616,7 @@ export class StoreCore {
         id: p.id,
         name: p.name,
         upiId: p.upiId || '',
+        phone: p.phone || '',
         isArchived: !!p.isArchived,
       })),
       categories: this.state.categories || [],
@@ -616,15 +646,19 @@ export class StoreCore {
   // MUTATION API (Preserving legacy UI contracts)
   // ─────────────────────────────────────────────────────────
 
-  findOrCreatePerson(name, upiId = '') {
+  findOrCreatePerson(name, upiId = '', phone = '') {
     const trimmed = (name || '').trim();
     if (!trimmed) return null;
+    const cleanPhone = phone ? cleanPhoneNumber(phone) : '';
 
     if (!this.isV2()) {
       let p = this.state.people.find((x) => x.name === trimmed);
       if (!p) {
-        p = { id: this.idGenerator(), name: trimmed, upiId };
+        p = { id: this.idGenerator(), name: trimmed, upiId, phone: cleanPhone };
         this.state.people.push(p);
+      } else {
+        if (upiId && !p.upiId) p.upiId = upiId;
+        if (cleanPhone && !p.phone) p.phone = cleanPhone;
       }
       return p;
     }
@@ -635,15 +669,68 @@ export class StoreCore {
         id: this.idGenerator(),
         name: trimmed,
         upiId,
+        phone: cleanPhone,
         isArchived: false,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
       this.state.people.push(p);
-    } else if (upiId && !p.upiId) {
-      p.upiId = upiId;
+    } else {
+      let updated = false;
+      if (upiId && !p.upiId) {
+        p.upiId = upiId;
+        updated = true;
+      }
+      if (cleanPhone && !p.phone) {
+        p.phone = cleanPhone;
+        updated = true;
+      }
+      if (updated) {
+        p.updatedAt = Date.now();
+      }
     }
     return p;
+  }
+
+  createExplicitPerson({ name, upiId = '', phone = '', force = false } = {}) {
+    const trimmed = (name || '').trim();
+    if (!trimmed) return { success: false, error: 'Contact name is required' };
+    const cleanUpi = (upiId || '').trim();
+    const cleanPhone = phone ? cleanPhoneNumber(phone) : '';
+
+    if (cleanUpi && !isValidUpiId(cleanUpi)) {
+      return { success: false, error: `Invalid UPI ID format: '${cleanUpi}'. Expected username@bank` };
+    }
+
+    if (!force) {
+      const existing = (this.state.people || []).find(
+        (p) => p.name.trim().toLowerCase() === trimmed.toLowerCase()
+      );
+      if (existing) {
+        return {
+          success: false,
+          error: `Contact named '${existing.name}' already exists. Use force=true to create a distinct contact.`,
+        };
+      }
+    }
+
+    const newPerson = {
+      id: this.idGenerator(),
+      name: trimmed,
+      upiId: cleanUpi,
+      phone: cleanPhone,
+      isArchived: false,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    if (!Array.isArray(this.state.people)) {
+      this.state.people = [];
+    }
+    this.state.people.push(newPerson);
+    this.saveCurrentState();
+    this.notify();
+    return { success: true, person: newPerson };
   }
 
   addTransaction(legacyTxn) {
@@ -653,11 +740,13 @@ export class StoreCore {
         const isPaidByUser = !legacyTxn.paidBy || legacyTxn.paidBy === 'user';
         this.state.transactions.push({
           id: legacyTxn.id || uid(),
+          action: 'personal_expense',
           type: isPaidByUser ? 'give' : 'take',
           person: isPaidByUser ? '' : legacyTxn.paidBy,
           amount: legacyTxn.amount,
           description: legacyTxn.description || '',
           category: legacyTxn.category || 'Other',
+          paymentMethod: legacyTxn.paymentMethod || 'OTHER',
           date: legacyTxn.date || new Date().toISOString(),
           createdAt: Date.now(),
         });
@@ -669,9 +758,22 @@ export class StoreCore {
         return { success: true };
       }
       if (legacyTxn.type === 'shared_expense') {
-        const splits = (legacyTxn.allocations || legacyTxn.splits || []).map((s) => ({ person: s.person, amount: s.amount }));
+        const splits = (legacyTxn.allocations || legacyTxn.splits || []).map((s) => ({
+          person: s.person,
+          personId: s.personId,
+          amount: s.amount,
+        }));
+        for (const sp of splits) {
+          if (!sp.amount || sp.amount <= 0) {
+            return {
+              success: false,
+              error: `Participant allocation for '${sp.person || 'participant'}' must be greater than ₹0`,
+            };
+          }
+        }
         this.state.transactions.push({
           id: legacyTxn.id || uid(),
+          action: 'shared_expense',
           type: 'split',
           person: splits.map((s) => s.person).join(', '),
           amount: legacyTxn.amount,
@@ -679,12 +781,15 @@ export class StoreCore {
           splits,
           description: legacyTxn.description || '',
           category: legacyTxn.category || 'Other',
+          paymentMethod: legacyTxn.paymentMethod || 'OTHER',
           date: legacyTxn.date || new Date().toISOString(),
           createdAt: Date.now(),
         });
         for (const sp of splits) {
-          if (sp.person && !this.state.people.find((p) => p.name === sp.person)) {
-            this.state.people.push({ id: uid(), name: sp.person, upiId: '' });
+          const match = (sp.personId && this.state.people.find((p) => p.id === sp.personId)) ||
+                        (sp.person && this.state.people.find((p) => p.name === sp.person));
+          if (!match && sp.person) {
+            this.state.people.push({ id: sp.personId || uid(), name: sp.person, upiId: '' });
           }
         }
         this.saveCurrentState();
@@ -733,6 +838,8 @@ export class StoreCore {
           type: 'settle',
           person: legacyTxn.person,
           amount: legacyTxn.amount,
+          direction: legacyTxn.direction,
+          paymentMethod: legacyTxn.paymentMethod || 'OTHER',
           description: legacyTxn.description || '',
           category: legacyTxn.category || 'Settlement',
           date: legacyTxn.date || new Date().toISOString(),
@@ -808,7 +915,8 @@ export class StoreCore {
       const isPaidByUser = !legacyTxn.payer || legacyTxn.payer === 'user' || legacyTxn.payer === PARTY_USER;
       let payerId = PARTY_USER;
       if (!isPaidByUser) {
-        const p = this.findOrCreatePerson(legacyTxn.payer);
+        const p = (legacyTxn.payerId && (this.state.people || []).find((x) => x.id === legacyTxn.payerId)) ||
+                  this.findOrCreatePerson(legacyTxn.payer);
         if (!p) return { success: false, error: 'Payer person is required' };
         payerId = p.id;
       }
@@ -817,9 +925,19 @@ export class StoreCore {
       let allocationsSum = 0;
 
       for (const s of rawSplits) {
-        const p = this.findOrCreatePerson(s.person);
         const sConv = convertRupeesToPaise(s.amount);
         const aPaise = sConv.isValid ? sConv.amountPaise : 0;
+        if (aPaise <= 0) {
+          return {
+            success: false,
+            error: `Participant allocation for '${s.person || 'participant'}' must be greater than ₹0`,
+          };
+        }
+        const p = (s.personId && (this.state.people || []).find((x) => x.id === s.personId)) ||
+                  (s.person && this.findOrCreatePerson(s.person));
+        if (!p) {
+          return { success: false, error: 'Valid person is required for allocation' };
+        }
         allocations.push({
           personId: p.id,
           amountPaise: aPaise,
@@ -1023,7 +1141,7 @@ export class StoreCore {
           createdAt: Date.now(),
           description: legacyTxn.description || 'Settlement',
           category: 'Settlement',
-          paymentMethod: 'OTHER',
+          paymentMethod: legacyTxn.paymentMethod || 'OTHER',
         };
       } else if (currentBalancePaise < 0) {
         // User owes person: Outflow repayment
@@ -1041,7 +1159,7 @@ export class StoreCore {
           createdAt: Date.now(),
           description: legacyTxn.description || 'Settlement',
           category: 'Settlement',
-          paymentMethod: 'OTHER',
+          paymentMethod: legacyTxn.paymentMethod || 'OTHER',
         };
       } else {
         return { success: false, error: 'Cannot record settlement: balance is already zero' };
@@ -1108,24 +1226,160 @@ export class StoreCore {
 
     const existingEvent = this.state.transactions[existingIndex];
     const moneyConv = updates.amount !== undefined ? convertRupeesToPaise(updates.amount) : null;
-    const amountPaise = moneyConv && moneyConv.isValid ? moneyConv.amountPaise : existingEvent.amountPaise || existingEvent.totalAmountPaise;
+    if (moneyConv && !moneyConv.isValid) {
+      return { success: false, error: `Invalid amount: ${moneyConv.error}` };
+    }
+    const amountPaise = moneyConv && moneyConv.isValid ? moneyConv.amountPaise : (existingEvent.amountPaise || existingEvent.totalAmountPaise);
 
     const updatedEvent = {
       ...existingEvent,
       description: updates.description !== undefined ? updates.description : existingEvent.description,
       category: updates.category !== undefined ? updates.category : existingEvent.category,
       date: updates.date ? extractCalendarDate(updates.date) : existingEvent.date,
+      paymentMethod: updates.paymentMethod !== undefined ? updates.paymentMethod : (existingEvent.paymentMethod || 'OTHER'),
       updatedAt: Date.now(),
     };
 
+    if (updates.paymentAttemptId !== undefined) {
+      updatedEvent.metadata = {
+        ...(existingEvent.metadata || {}),
+        paymentAttemptId: updates.paymentAttemptId,
+      };
+    }
+
     if (existingEvent.kind === EVENT_KINDS.EXPENSE) {
       updatedEvent.totalAmountPaise = amountPaise;
-      if (updates.myShare !== undefined) {
-        const mConv = convertRupeesToPaise(updates.myShare);
-        updatedEvent.userSharePaise = mConv.isValid ? mConv.amountPaise : updatedEvent.userSharePaise;
+
+      // Payer resolution
+      if (updates.payerId !== undefined) {
+        if (updates.payerId === 'user' || updates.payerId === PARTY_USER) {
+          updatedEvent.payerId = PARTY_USER;
+        } else {
+          const p = (this.state.people || []).find((x) => x.id === updates.payerId) ||
+                    (updates.payer && this.findOrCreatePerson(updates.payer));
+          updatedEvent.payerId = p ? p.id : updates.payerId;
+        }
+      } else if (updates.payer !== undefined) {
+        if (updates.payer === 'user' || updates.payer === PARTY_USER) {
+          updatedEvent.payerId = PARTY_USER;
+        } else {
+          const p = this.findOrCreatePerson(updates.payer);
+          updatedEvent.payerId = p ? p.id : PARTY_USER;
+        }
+      } else if (updates.paidBy !== undefined) {
+        if (updates.paidBy === 'user' || updates.paidBy === PARTY_USER) {
+          updatedEvent.payerId = PARTY_USER;
+        } else {
+          const p = this.findOrCreatePerson(updates.paidBy);
+          updatedEvent.payerId = p ? p.id : PARTY_USER;
+        }
+      }
+
+      const rawSplits = Array.isArray(updates.allocations)
+        ? updates.allocations
+        : (Array.isArray(updates.splits) ? updates.splits : null);
+
+      if (rawSplits !== null) {
+        const newAllocations = [];
+        let allocationsSum = 0;
+
+        for (let i = 0; i < rawSplits.length; i++) {
+          const s = rawSplits[i];
+          if (!s || typeof s !== 'object') {
+            return { success: false, error: `Invalid allocation at index ${i}` };
+          }
+          const sConv = convertRupeesToPaise(s.amount);
+          const aPaise = sConv.isValid ? sConv.amountPaise : 0;
+          if (aPaise <= 0) {
+            return {
+              success: false,
+              error: `Participant allocation for '${s.person || 'participant'}' must be greater than ₹0`,
+            };
+          }
+          const p = (s.personId && (this.state.people || []).find((x) => x.id === s.personId)) ||
+                    (s.person && this.findOrCreatePerson(s.person));
+          if (!p) {
+            return { success: false, error: `Valid person is required for allocation '${s.person || i}'` };
+          }
+          if (p.id === PARTY_USER) {
+            return { success: false, error: 'User share cannot be placed in participant allocations' };
+          }
+          if (newAllocations.some((a) => a.personId === p.id)) {
+            return { success: false, error: `Duplicate allocation for '${p.name}' in shared expense` };
+          }
+          newAllocations.push({
+            personId: p.id,
+            amountPaise: aPaise,
+          });
+          allocationsSum += aPaise;
+        }
+
+        const userShareInput = updates.userShare !== undefined ? updates.userShare : updates.myShare;
+        let userSharePaise;
+        if (userShareInput !== undefined) {
+          const uConv = convertRupeesToPaise(userShareInput);
+          if (!uConv.isValid) {
+            return { success: false, error: `Invalid user share: ${uConv.error}` };
+          }
+          userSharePaise = uConv.amountPaise;
+        } else {
+          userSharePaise = Math.max(0, amountPaise - allocationsSum);
+        }
+
+        const calculatedSum = userSharePaise + allocationsSum;
+        const diff = calculatedSum - amountPaise;
+        if (Math.abs(diff) <= 2) {
+          userSharePaise = userSharePaise - diff;
+        } else if (diff !== 0) {
+          return {
+            success: false,
+            error: `Shared expense does not conserve: sum of user share (₹${userSharePaise / 100}) and allocations (₹${allocationsSum / 100}) must equal total bill (₹${amountPaise / 100})`,
+          };
+        }
+
+        updatedEvent.allocations = newAllocations;
+        updatedEvent.userSharePaise = userSharePaise;
+      } else {
+        const isExistingShared = Array.isArray(existingEvent.allocations) && existingEvent.allocations.length > 0;
+        if (isExistingShared) {
+          updatedEvent.allocations = existingEvent.allocations;
+          const userShareInput = updates.userShare !== undefined ? updates.userShare : updates.myShare;
+          if (userShareInput !== undefined) {
+            const uConv = convertRupeesToPaise(userShareInput);
+            if (!uConv.isValid) {
+              return { success: false, error: `Invalid user share: ${uConv.error}` };
+            }
+            updatedEvent.userSharePaise = uConv.amountPaise;
+          } else {
+            updatedEvent.userSharePaise = existingEvent.userSharePaise;
+          }
+        } else {
+          updatedEvent.allocations = [];
+          updatedEvent.userSharePaise = amountPaise;
+        }
+      }
+    } else if (existingEvent.kind === EVENT_KINDS.TRANSFER || existingEvent.kind === EVENT_KINDS.REPAYMENT || existingEvent.kind === EVENT_KINDS.ADJUSTMENT) {
+      updatedEvent.amountPaise = amountPaise;
+      if (updates.person || updates.personId) {
+        const p = (updates.personId && (this.state.people || []).find((x) => x.id === updates.personId)) ||
+                  (updates.person && this.findOrCreatePerson(updates.person));
+        if (p) {
+          if (existingEvent.fromPartyId === PARTY_USER) {
+            updatedEvent.toPartyId = p.id;
+          } else {
+            updatedEvent.fromPartyId = p.id;
+          }
+        }
       }
     } else {
       updatedEvent.amountPaise = amountPaise;
+      if (updates.person || updates.personId) {
+        const p = (updates.personId && (this.state.people || []).find((x) => x.id === updates.personId)) ||
+                  (updates.person && this.findOrCreatePerson(updates.person));
+        if (p) {
+          updatedEvent.personId = p.id;
+        }
+      }
     }
 
     const val = validateEvent(updatedEvent);
@@ -1172,8 +1426,20 @@ export class StoreCore {
     return { success: true };
   }
 
-  addPerson(name, upiId = '') {
-    const p = this.findOrCreatePerson(name, upiId);
+  addPerson(nameOrData, upiId = '', phone = '') {
+    if (nameOrData && typeof nameOrData === 'object') {
+      const { name, upiId: u = '', phone: ph = '', force = false } = nameOrData;
+      if (force) {
+        const res = this.createExplicitPerson({ name, upiId: u, phone: ph });
+        return res.success ? res.person : null;
+      }
+      const p = this.findOrCreatePerson(name, u, ph);
+      this.saveCurrentState();
+      this.notify();
+      return p;
+    }
+
+    const p = this.findOrCreatePerson(nameOrData, upiId, phone);
     this.saveCurrentState();
     this.notify();
     return p;
@@ -1218,6 +1484,9 @@ export class StoreCore {
         return { success: false, error: `Invalid UPI ID '${upi}'. Expected format username@bank (e.g. name@okhdfcbank)` };
       }
       p.upiId = upi;
+    }
+    if (data.phone !== undefined) {
+      p.phone = data.phone ? cleanPhoneNumber(data.phone) : '';
     }
     p.updatedAt = Date.now();
     this.saveCurrentState();
@@ -1389,6 +1658,7 @@ export class StoreCore {
         id: p.id,
         name: p.name,
         upiId: p.upiId || '',
+        phone: p.phone || '',
         isArchived: !!p.isArchived,
         balanceRupees: bal,
         lastActivityDate: lastTxn ? lastTxn.date : null,
@@ -1411,6 +1681,7 @@ export class StoreCore {
           id: name,
           name,
           upiId: '',
+          phone: '',
           isArchived: false,
           balanceRupees: bal,
           lastActivityDate: lastTxn ? lastTxn.date : null,
@@ -1564,6 +1835,7 @@ export class StoreCore {
           schemaVersion: isV2 ? 2 : 1,
           transactionCount: txns.length,
           peopleCount: people.length,
+          paymentAttemptsCount: Array.isArray(parsed.paymentAttempts) ? parsed.paymentAttempts.length : 0,
           warnings,
         },
         parsed,
@@ -1652,7 +1924,7 @@ export class StoreCore {
   // PAYMENT ATTEMPTS (UPI Lifecycle & Reconciliation)
   // ─────────────────────────────────────────────────────────
 
-  createPaymentAttempt({ personId, personName, upiId, amountRupees, note = '', type = 'UPI' }) {
+  createPaymentAttempt({ personId, recipientPartyId, personName, upiId, amountRupees, note = '', type = 'UPI' }) {
     if (type === 'UPI') {
       if (!isValidUpiId(upiId)) {
         return { success: false, error: `Invalid UPI ID format: '${upiId}'. Expected format: name@bank` };
@@ -1668,12 +1940,14 @@ export class StoreCore {
     const amountFloat = conv.amountPaise / 100;
     const cleanUpiId = (upiId || '').trim();
     const cleanName = (personName || '').trim();
-    const intentUrl = `upi://pay?pa=${encodeURIComponent(cleanUpiId)}&pn=${encodeURIComponent(cleanName)}&am=${amountFloat.toFixed(2)}&cu=INR&tn=${encodeURIComponent(note || 'PocketLedger')}`;
+    const intentUrl = cleanUpiId
+      ? `upi://pay?pa=${encodeURIComponent(cleanUpiId)}&pn=${encodeURIComponent(cleanName)}&am=${amountFloat.toFixed(2)}&cu=INR&tn=${encodeURIComponent(note || 'PocketLedger')}`
+      : null;
 
     const attempt = {
       id: attemptId,
       type,
-      recipientPartyId: personId || null,
+      recipientPartyId: personId || recipientPartyId || null,
       recipientName: cleanName,
       recipientUpiId: cleanUpiId,
       amountPaise: conv.amountPaise,
@@ -1736,7 +2010,7 @@ export class StoreCore {
       const txnPayload = {
         ...ledgerTxnData,
         paymentAttemptId: attempt.id,
-        paymentMethod: attempt.type,
+        paymentMethod: attempt.type === 'GOOGLE_PAY' ? 'UPI' : (attempt.type || 'UPI'),
       };
 
       const addResult = this.addTransaction(txnPayload);
@@ -1796,6 +2070,7 @@ export class StoreCore {
           id: personObj.id || nameToId.get(name) || name,
           name,
           upiId: personObj.upiId || '',
+          phone: personObj.phone || '',
           balanceRupees,
           balancePaise: Math.round(balanceRupees * 100),
         });

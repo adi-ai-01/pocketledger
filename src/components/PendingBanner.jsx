@@ -27,12 +27,13 @@ export default function PendingBanner({ alarms, onResolve }) {
         <div className="mt-2 space-y-2 animate-fade-in">
           {alarms.map((alarm) => {
             const ago = Math.round((Date.now() - alarm.createdAt) / (1000 * 60 * 60));
+            const amtRupees = alarm.amount !== undefined ? alarm.amount : (alarm.amountPaise !== undefined ? alarm.amountPaise / 100 : 0);
 
             return (
               <div key={alarm.id} className="p-3.5 flex items-center gap-3 rounded-xl bg-secondary/60 border border-[var(--border-color)]">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate text-text-primary">
-                    {alarm.direction === 'gave' ? 'Gave' : 'Settled'} ₹{alarm.amount.toLocaleString('en-IN')} {alarm.direction === 'gave' ? 'to' : 'with'} {alarm.personName}
+                    {alarm.direction === 'gave' ? 'Gave' : 'Settled'} ₹{amtRupees.toLocaleString('en-IN')} {alarm.direction === 'gave' ? 'to' : 'with'} {alarm.personName}
                   </p>
                   <p className="text-xs text-text-muted">
                     {ago < 1 ? 'Just now' : `${ago}h ago`} · Did they pay?

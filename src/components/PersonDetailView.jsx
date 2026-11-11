@@ -13,8 +13,10 @@ import {
   Copy,
   Check,
   ExternalLink,
+  Phone,
 } from 'lucide-react';
 import { isValidUpiId } from '../domain/store-core.js';
+import { isValidPhoneNumber, cleanPhoneNumber } from '../domain/upi-qr.js';
 import UpiModal from './transaction/UpiModal.jsx';
 
 export default function PersonDetailView({
@@ -29,6 +31,7 @@ export default function PersonDetailView({
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState(personName || '');
+  const [editPhone, setEditPhone] = useState('');
   const [editUpi, setEditUpi] = useState('');
   const [editError, setEditError] = useState(null);
   const [showUpiPayModal, setShowUpiPayModal] = useState(false);
@@ -57,6 +60,7 @@ export default function PersonDetailView({
 
   const openEditModal = () => {
     setEditName(person.name || '');
+    setEditPhone(person.phone || '');
     setEditUpi(person.upiId || '');
     setEditError(null);
     setShowEditModal(true);
@@ -68,6 +72,11 @@ export default function PersonDetailView({
       setEditError('Person name cannot be empty');
       return;
     }
+    const phoneTrimmed = editPhone.trim();
+    if (phoneTrimmed && !isValidPhoneNumber(phoneTrimmed)) {
+      setEditError('Please enter a valid phone number (10+ digits)');
+      return;
+    }
     const upiTrimmed = editUpi.trim();
     if (upiTrimmed && !isValidUpiId(upiTrimmed)) {
       setEditError(`Invalid UPI ID '${upiTrimmed}'. Format must be username@bank (e.g. name@okaxis)`);
@@ -76,6 +85,7 @@ export default function PersonDetailView({
 
     const res = store.updatePerson(person.id || person.name, {
       name: editName.trim(),
+      phone: cleanPhoneNumber(phoneTrimmed),
       upiId: upiTrimmed,
     });
 
@@ -143,26 +153,34 @@ export default function PersonDetailView({
             </div>
             <div>
               <h1 className="text-xl font-bold text-text-primary leading-tight">{person.name}</h1>
-              {person.upiId ? (
-                <button
-                  onClick={handleCopyUpi}
-                  className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent font-mono mt-0.5 transition-colors group"
-                >
-                  <span>{person.upiId}</span>
-                  {copiedUpi ? (
-                    <Check size={13} className="text-emerald-400" />
-                  ) : (
-                    <Copy size={13} className="text-text-muted group-hover:text-accent transition-colors" />
-                  )}
-                </button>
-              ) : (
-                <button
-                  onClick={openEditModal}
-                  className="text-xs text-accent hover:underline mt-0.5"
-                >
-                  + Add UPI ID
-                </button>
-              )}
+              <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                {person.phone && (
+                  <span className="flex items-center gap-1 text-xs text-text-secondary">
+                    <Phone size={12} className="text-emerald-400" />
+                    <span>{person.phone}</span>
+                  </span>
+                )}
+                {person.upiId ? (
+                  <button
+                    onClick={handleCopyUpi}
+                    className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent font-mono transition-colors group"
+                  >
+                    <span>{person.upiId}</span>
+                    {copiedUpi ? (
+                      <Check size={13} className="text-emerald-400" />
+                    ) : (
+                      <Copy size={13} className="text-text-muted group-hover:text-accent transition-colors" />
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={openEditModal}
+                    className="text-xs text-accent hover:underline"
+                  >
+                    + Add UPI ID
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -390,6 +408,20 @@ export default function PersonDetailView({
               </div>
 
               <div>
+                <label className="text-xs font-medium text-text-secondary block mb-1.5">Phone Number (optional)</label>
+                <input
+                  type="tel"
+                  value={editPhone}
+                  onChange={(e) => {
+                    setEditPhone(e.target.value);
+                    setEditError(null);
+                  }}
+                  className="w-full h-[50px] px-3.5 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
+                  placeholder="e.g. +91 98765 43210"
+                />
+              </div>
+
+              <div>
                 <label className="text-xs font-medium text-text-secondary block mb-1.5">UPI ID (optional)</label>
                 <input
                   value={editUpi}
@@ -432,9 +464,12 @@ export default function PersonDetailView({
       {showUpiPayModal && store && (
         <UpiModal
           isOpen={showUpiPayModal}
+          recipientId={person.id || null}
           recipientName={person.name}
-          recipientUpiId={person.upiId}
+          recipientUpiId={person.upiId || ''}
+          recipientPhone={person.phone || ''}
           amount={absBalance}
+          mode={person.upiId && isValidUpiId(person.upiId) ? 'DIRECT_UPI' : 'GOOGLE_PAY'}
           note={`PocketLedger repayment to ${person.name}`}
           ledgerTxnData={{
             type: 'repayment',

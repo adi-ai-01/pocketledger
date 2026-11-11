@@ -338,7 +338,7 @@ export default function SettingsTab({
             <div className="flex items-center gap-3 min-w-0">
               <Download size={20} className="text-text-muted flex-shrink-0" />
               <div className="min-w-0">
-                <p className="text-[15px] font-medium text-text-primary truncate">Backup ledger</p>
+                <p className="text-[15px] font-medium text-text-primary truncate">Download backup</p>
                 <p className="text-xs text-text-muted truncate">Download complete JSON ledger backup</p>
               </div>
             </div>
@@ -370,7 +370,7 @@ export default function SettingsTab({
             <div className="flex items-center gap-3 min-w-0">
               <Upload size={20} className="text-text-muted flex-shrink-0" />
               <div className="min-w-0">
-                <p className="text-[15px] font-medium text-text-primary truncate">Restore backup</p>
+                <p className="text-[15px] font-medium text-text-primary truncate">Restore from backup file</p>
                 <p className="text-xs text-text-muted truncate">Import JSON backup with safety preview</p>
               </div>
             </div>
@@ -436,11 +436,37 @@ export default function SettingsTab({
                 </p>
 
                 {showMigrationPreview && previewData && (
-                  <div className="p-3 rounded-lg bg-secondary/80 text-xs space-y-1 border border-[var(--border-color)]">
-                    <p className="text-text-secondary">Transactions to update: {previewData.transactionCount}</p>
-                    <p className="text-text-secondary">Directory contacts: {previewData.peopleCount}</p>
+                  <div className="p-3 rounded-lg bg-secondary/80 text-xs space-y-1.5 border border-[var(--border-color)]">
+                    <p className="text-text-secondary">
+                      Transactions to migrate: <span className="font-semibold text-text-primary">{previewData.transactionCount}</span>
+                    </p>
+                    <p className="text-text-secondary">
+                      Directory contacts: <span className="font-semibold text-text-primary">{previewData.peopleCount}</span>
+                    </p>
+                    <p className="text-text-secondary">
+                      Payment attempts to preserve: <span className="font-semibold text-text-primary">{previewData.paymentAttemptsCount ?? 0}</span>
+                    </p>
+                    <p className="text-text-secondary">
+                      Unresolved payment attempts: <span className="font-semibold text-text-primary">{previewData.unresolvedPaymentAttemptsCount ?? 0}</span>
+                    </p>
+                    <p className="text-text-secondary">
+                      Pending alarms: <span className="font-semibold text-text-primary">{previewData.pendingAlarmsCount ?? 0}</span>
+                    </p>
+                    <p className="text-text-secondary">
+                      Unclassified legacy transactions: <span className="font-semibold text-text-primary">{previewData.unclassifiedTransactionsCount ?? 0}</span>
+                    </p>
+                    <p className="text-text-secondary">
+                      Unverified historical settlements: <span className="font-semibold text-text-primary">{previewData.unverifiedSettlementsCount ?? 0}</span>
+                    </p>
+                    {(previewData.otherReviewItemsCount ?? 0) > 0 && (
+                      <p className="text-text-secondary">
+                        Other historical review items: <span className="font-semibold text-text-primary">{previewData.otherReviewItemsCount}</span>
+                      </p>
+                    )}
                     {previewData.warnings?.length > 0 && (
-                      <p className="text-amber-400">{previewData.warnings.length} items flagged for review.</p>
+                      <p className="text-amber-400 pt-1 border-t border-[var(--border-color)]/60">
+                        {previewData.warnings.length} items flagged for review.
+                      </p>
                     )}
                   </div>
                 )}
@@ -616,6 +642,12 @@ export default function SettingsTab({
                 <span className="text-text-muted">People in Directory</span>
                 <span className="font-medium text-text-primary">{importPreview.preview.peopleCount}</span>
               </div>
+              {importPreview.preview.paymentAttemptsCount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-text-muted">Payment Attempts</span>
+                  <span className="font-medium text-text-primary">{importPreview.preview.paymentAttemptsCount}</span>
+                </div>
+              )}
             </div>
 
             {importPreview.preview.warnings.length > 0 && (

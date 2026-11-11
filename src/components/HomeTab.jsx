@@ -43,14 +43,12 @@ export default function HomeTab({
     ? Object.entries(analytics.byCategory).sort((a, b) => b[1] - a[1])[0]
     : null;
 
-  // ── Attention Items ──
+  // ── Attention Items (Legacy review items requiring Settings review) ──
   const attentionData = store?.getAttentionItems ? store.getAttentionItems() : null;
-  const unresolvedUpiCount = attentionData?.unresolvedPayments?.length || 0;
   const pendingReviewCount =
     (attentionData?.pendingAlarms?.length || 0) +
     (attentionData?.migratedAlarms?.length || 0) +
     (attentionData?.unclassifiedEvents?.length || 0);
-  const totalAttentionCount = unresolvedUpiCount + pendingReviewCount;
 
   // ── Recent Activity (Last 5 transactions) ──
   const projectedTxns = store?.getLegacyProjectedTransactions
@@ -72,19 +70,17 @@ export default function HomeTab({
         </p>
       </header>
 
-      {/* ── 2. Actionable Attention Banner (Only when relevant) ── */}
-      {totalAttentionCount > 0 && (
+      {/* ── 2. Actionable Attention Banner (Only for review items that navigate to Settings) ── */}
+      {pendingReviewCount > 0 && (
         <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-3 text-xs animate-fade-in">
           <div className="flex items-center gap-2.5 min-w-0">
             <AlertTriangle size={16} className="text-amber-400 flex-shrink-0" />
             <div className="min-w-0">
               <p className="font-semibold text-text-primary truncate">
-                {totalAttentionCount} {totalAttentionCount === 1 ? 'item requires' : 'items require'} attention
+                {pendingReviewCount} {pendingReviewCount === 1 ? 'item requires' : 'items require'} review
               </p>
               <p className="text-[11px] text-text-secondary truncate">
-                {unresolvedUpiCount > 0 && `${unresolvedUpiCount} unverified UPI payment${unresolvedUpiCount > 1 ? 's' : ''}`}
-                {unresolvedUpiCount > 0 && pendingReviewCount > 0 && ' · '}
-                {pendingReviewCount > 0 && `${pendingReviewCount} legacy review item${pendingReviewCount > 1 ? 's' : ''}`}
+                {pendingReviewCount} legacy review {pendingReviewCount === 1 ? 'item' : 'items'} in Settings
               </p>
             </div>
           </div>

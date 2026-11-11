@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -6,7 +6,7 @@ import {
   Settings,
   Plus,
 } from 'lucide-react';
-import { useStore, computeLendingBalances, computeMonthlyAnalytics } from './store.js';
+import { useStore } from './store.js';
 import HomeTab from './components/HomeTab.jsx';
 import LendingsTab from './components/LendingsTab.jsx';
 import HistoryTab from './components/HistoryTab.jsx';
@@ -14,6 +14,7 @@ import SettingsTab from './components/SettingsTab.jsx';
 import TransactionSheet from './components/TransactionSheet.jsx';
 import PendingBanner from './components/PendingBanner.jsx';
 import UnresolvedAttemptsBanner from './components/transaction/UnresolvedAttemptsBanner.jsx';
+import { dispatchTransactionSave } from './domain/transaction-routing.js';
 
 export default function App() {
   const store = useStore();
@@ -21,9 +22,36 @@ export default function App() {
   const [sheet, setSheet] = useState(null); // null | { type: 'give'|'take'|'split'|'settle', editTxn? }
 
   // Derived data
-  const balances = computeLendingBalances(store.state.transactions);
+  const balances = store.computeBalances();
   const now = new Date();
-  const analytics = computeMonthlyAnalytics(store.state.transactions, now.getFullYear(), now.getMonth());
+  const analytics = store.computeMonthlyAnalytics(now.getFullYear(), now.getMonth());
+
+  // Pending review & migrated alarms consolidation
+  const attentionData = store.getAttentionItems ? store.getAttentionItems() : null;
+  const pendingAlarmsList = useMemo(() => {
+    const list = [];
+    const seen = new Set();
+    const addAlarm = (a) => {
+      if (!a || seen.has(a.id)) return;
+      if (a.reviewStatus && a.reviewStatus !== 'PENDING_USER_REVIEW') return;
+      seen.add(a.id);
+      list.push({
+        id: a.id,
+        txnId: a.txnId,
+        personName: a.personName,
+        amount: a.amount !== undefined ? a.amount : (a.amountPaise !== undefined ? a.amountPaise / 100 : 0),
+        direction: a.direction,
+        createdAt: a.createdAt,
+      });
+    };
+
+    if (attentionData?.pendingAlarms) attentionData.pendingAlarms.forEach(addAlarm);
+    if (attentionData?.migratedAlarms) attentionData.migratedAlarms.forEach(addAlarm);
+    if (store.state?.pendingAlarms) store.state.pendingAlarms.forEach(addAlarm);
+    if (store.state?.pendingReviews?.migratedAlarms) store.state.pendingReviews.migratedAlarms.forEach(addAlarm);
+
+    return list;
+  }, [attentionData, store.state]);
 
   const openSheet = (type, editTxn) => setSheet({ type, editTxn });
   const closeSheet = () => setSheet(null);
@@ -66,7 +94,7 @@ export default function App() {
     <div className="flex flex-col min-h-dvh bg-primary text-primary transition-all duration-200">
       {/* Pending alarms banner */}
       <div className="max-w-2xl mx-auto w-full px-5 sm:px-6">
-        <PendingBanner alarms={store.state.pendingAlarms} onResolve={store.resolvePendingAlarm} />
+        <PendingBanner alarms={pendingAlarmsList} onResolve={store.resolvePendingAlarm} />
       </div>
 
       {/* Unresolved UPI payment attempts banner */}
@@ -185,12 +213,12 @@ export default function App() {
           balances={balances}
           store={store}
           onSave={(txn) => {
-            if (sheet.editTxn) {
-              store.editTransaction(sheet.editTxn.id, txn);
-            } else {
-              store.addTransaction(txn);
+            const res = dispatchTransactionSave(sheet, txn, store);
+            if (res && res.success === false) {
+              return res;
             }
             closeSheet();
+            return res;
           }}
           onClose={closeSheet}
           onAddPendingAlarm={store.addPendingAlarm}

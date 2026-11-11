@@ -1,6 +1,16 @@
-import { useState } from 'react';
-import { ArrowLeft, CheckCircle2, ArrowDownLeft, ArrowUpRight, AlertCircle, Banknote, CreditCard, ShieldCheck, ExternalLink } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ArrowDownLeft,
+  ArrowUpRight,
+  AlertCircle,
+  Banknote,
+  CreditCard,
+} from 'lucide-react';
 import UpiModal from './UpiModal.jsx';
+import ContactPicker from './ContactPicker.jsx';
+import PaymentRecipientResolver from './PaymentRecipientResolver.jsx';
 
 export default function RepaymentForm({
   initialPerson = '',
@@ -15,7 +25,7 @@ export default function RepaymentForm({
   onBack,
 }) {
   const currency = settings.currency || '₹';
-  const isEdit = !!editTxn;
+  const isEdit = Boolean(editTxn && editTxn.id);
 
   // Find people with active non-zero balances
   const peopleWithBalances = Object.entries(balances)
@@ -30,23 +40,42 @@ export default function RepaymentForm({
     })
     .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
 
-  // Selected person
+  // Default person selection
   const defaultPerson = editTxn?.person || initialPerson || peopleWithBalances[0]?.name || '';
   const [selectedPerson, setSelectedPerson] = useState(defaultPerson);
+
+  const initialPersonObj = useMemo(() => {
+    const q = defaultPerson.trim().toLowerCase();
+    if (!q) return null;
+    return people.find((p) => p.name.trim().toLowerCase() === q) || { name: defaultPerson, id: '' };
+  }, [people, defaultPerson]);
+
+  const [selectedPersonObj, setSelectedPersonObj] = useState(initialPersonObj);
+  const [resolvedUpiId, setResolvedUpiId] = useState(initialPersonObj?.upiId || '');
 
   // Compute selected person balance
   const activeBalance = balances[selectedPerson] || 0;
   const absDebt = Math.abs(activeBalance);
+  const isZeroBalance = !isEdit && Boolean(selectedPerson && absDebt <= 0.01);
 
   // Automatically determine direction:
   // activeBalance > 0 -> They owe user -> Inflow: "They paid me back"
   // activeBalance < 0 -> User owes them -> Outflow: "I paid them back"
-  const isTheyPaidMe = activeBalance > 0;
+  // For editing an existing repayment, respect stored direction or canonical party
+  const isTheyPaidMe = editTxn?.direction
+    ? editTxn.direction === 'inflow'
+    : editTxn?.toPartyId === 'USER'
+    ? true
+    : editTxn?.fromPartyId === 'USER'
+    ? false
+    : activeBalance > 0;
 
   // Amount
   const [amount, setAmount] = useState(() => {
-    if (editTxn) return String(editTxn.amount);
-    if (initialAmount) return String(initialAmount);
+    if (isEdit && editTxn) return String(editTxn.amount);
+    if (initialAmount !== undefined && initialAmount !== null && initialAmount !== '') {
+      return String(initialAmount);
+    }
     return absDebt > 0 ? String(absDebt) : '';
   });
 
@@ -57,14 +86,12 @@ export default function RepaymentForm({
     editTxn?.date ? editTxn.date.slice(0, 10) : new Date().toISOString().slice(0, 10)
   );
 
-  // For Outgoing Repayment (!isTheyPaidMe): channel can be 'UPI_LAUNCH' | 'CASH' | 'ALREADY_COMPLETED'
-  const [outgoingChannel, setOutgoingChannel] = useState(
-    editTxn?.paymentMethod === 'CASH'
-      ? 'CASH'
-      : editTxn
-      ? 'ALREADY_COMPLETED'
-      : 'CASH'
-  );
+  // For Outgoing Repayment (!isTheyPaidMe): channel can be 'UPI' | 'CASH' | 'ALREADY_COMPLETED'
+  const [outgoingChannel, setOutgoingChannel] = useState(() => {
+    if (editTxn?.paymentMethod === 'CASH') return 'CASH';
+    if (editTxn) return 'ALREADY_COMPLETED';
+    return 'UPI';
+  });
 
   // Actual payment method when already completed
   const [completedMethod, setCompletedMethod] = useState(editTxn?.paymentMethod || 'UPI');
@@ -73,12 +100,17 @@ export default function RepaymentForm({
   const [incomingMethod, setIncomingMethod] = useState(editTxn?.paymentMethod || 'UPI');
 
   const [showUpiModal, setShowUpiModal] = useState(false);
+  const [upiLaunchMode, setUpiLaunchMode] = useState('DIRECT_UPI');
   const [errorMessage, setErrorMessage] = useState(null);
 
   // When selected person changes, update prefilled amount and description if not in edit mode
-  const handlePersonChange = (newPerson) => {
-    setSelectedPerson(newPerson);
-    const newBal = balances[newPerson] || 0;
+  const handleContactChange = (contact) => {
+    setSelectedPerson(contact.name);
+    setSelectedPersonObj(contact);
+    if (contact.upiId) {
+      setResolvedUpiId(contact.upiId);
+    }
+    const newBal = balances[contact.name] || 0;
     const newAbs = Math.abs(newBal);
     if (!isEdit) {
       setAmount(newAbs > 0 ? String(newAbs) : '');
@@ -88,16 +120,18 @@ export default function RepaymentForm({
   };
 
   const amountFloat = parseFloat(amount) || 0;
-  const isOverpayment = amountFloat > absDebt + 0.01;
+  const isOverpayment = !isEdit && absDebt > 0 && amountFloat > absDebt + 0.01;
   const remainingDebt = Math.max(0, Math.round((absDebt - amountFloat) * 100) / 100);
 
-  const matchingPerson = people.find((p) => p.name.toLowerCase() === selectedPerson.trim().toLowerCase());
-  const recipientUpiId = matchingPerson?.upiId || '';
-
   const handleSubmit = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!selectedPerson.trim()) {
       setErrorMessage('Please select a person with an outstanding balance');
+      return;
+    }
+
+    if (isZeroBalance) {
+      setErrorMessage(`No repayment is currently due. ${selectedPerson} is already fully settled.`);
       return;
     }
 
@@ -118,9 +152,10 @@ export default function RepaymentForm({
 
     if (!isTheyPaidMe) {
       // Outgoing repayment
-      if (outgoingChannel === 'UPI_LAUNCH') {
+      if (outgoingChannel === 'UPI' || outgoingChannel === 'UPI_LAUNCH') {
         finalPaymentMethod = 'UPI';
         if (!isEdit) {
+          setUpiLaunchMode(resolvedUpiId && isValidUpiId(resolvedUpiId) ? 'DIRECT_UPI' : 'GOOGLE_PAY');
           setShowUpiModal(true);
           return;
         }
@@ -172,74 +207,77 @@ export default function RepaymentForm({
           </button>
         )}
 
-        {/* Person Selector */}
+        {/* Universal Contact Picker */}
         <div>
-          <label className="text-xs font-medium text-text-secondary mb-1.5 block">
-            Select Contact
-          </label>
-          {peopleWithBalances.length > 0 ? (
-            <select
-              value={selectedPerson}
-              onChange={(e) => handlePersonChange(e.target.value)}
-              className="w-full h-[48px] px-3 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
-            >
-              {peopleWithBalances.map((p) => {
-                const isPositive = p.balance > 0;
-                return (
-                  <option key={p.name} value={p.name}>
-                    {p.name} · {isPositive ? `Owes you ${currency}${p.balance.toLocaleString('en-IN')}` : `You owe ${currency}${Math.abs(p.balance).toLocaleString('en-IN')}`}
-                  </option>
-                );
-              })}
-            </select>
-          ) : (
-            <div>
-              <p className="text-xs text-text-muted mb-2">No contacts with outstanding debt found.</p>
-              <input
-                placeholder="Person name"
-                value={selectedPerson}
-                onChange={(e) => setSelectedPerson(e.target.value)}
-                className="w-full h-[48px] px-3.5 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
-              />
-            </div>
-          )}
+          <ContactPicker
+            label="Select Contact"
+            placeholder="Search or add contact (by name or phone)..."
+            value={selectedPersonObj || selectedPerson}
+            onChange={handleContactChange}
+            people={people}
+            balances={balances}
+            currency={currency}
+            store={store}
+            required
+          />
         </div>
 
         {/* Direction Card */}
         {selectedPerson && (
-          <div className={`p-3.5 rounded-xl border flex items-center gap-3 ${
-            isTheyPaidMe
-              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-              : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-          }`}>
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-              isTheyPaidMe ? 'bg-emerald-500/20' : 'bg-rose-500/20'
-            }`}>
-              {isTheyPaidMe ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold">
-                  {isTheyPaidMe ? 'They Paid Me Back' : 'I Paid Them Back'}
-                </span>
-                <span className="text-xs font-semibold tabular-nums">
-                  Debt: {currency}{absDebt.toLocaleString('en-IN')}
-                </span>
+          isZeroBalance ? (
+            <div className="p-3.5 rounded-xl border border-[var(--border-color)] bg-secondary/50 flex items-center gap-3 text-text-secondary animate-fade-in">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-secondary border border-[var(--border-color)] text-emerald-400">
+                <CheckCircle2 size={16} />
               </div>
-              <p className="text-xs text-text-secondary leading-tight mt-0.5">
-                {isTheyPaidMe
-                  ? `${selectedPerson} is clearing money they owe you.`
-                  : `You are clearing money you owe ${selectedPerson}.`}
-              </p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-text-primary">
+                    Already Settled
+                  </span>
+                  <span className="text-xs font-semibold tabular-nums text-text-muted">
+                    Balance: {currency}0
+                  </span>
+                </div>
+                <p className="text-xs text-text-muted leading-tight mt-0.5">
+                  No repayment is currently due. You and {selectedPerson} are completely settled up.
+                </p>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className={`p-3.5 rounded-xl border flex items-center gap-3 ${
+              isTheyPaidMe
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+            }`}>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                isTheyPaidMe ? 'bg-emerald-500/20' : 'bg-rose-500/20'
+              }`}>
+                {isTheyPaidMe ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold">
+                    {isTheyPaidMe ? 'They Paid Me Back' : 'I Paid Them Back'}
+                  </span>
+                  <span className="text-xs font-semibold tabular-nums">
+                    Debt: {currency}{absDebt.toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <p className="text-xs text-text-secondary leading-tight mt-0.5">
+                  {isTheyPaidMe
+                    ? `${selectedPerson} is clearing money they owe you.`
+                    : `You are clearing money you owe ${selectedPerson}.`}
+                </p>
+              </div>
+            </div>
+          )
         )}
 
         {/* Amount */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs font-medium text-text-secondary">Repayment Amount ({currency})</label>
-            {absDebt > 0 && amountFloat !== absDebt && (
+            {!isZeroBalance && absDebt > 0 && amountFloat !== absDebt && (
               <button
                 type="button"
                 onClick={() => setAmount(String(absDebt))}
@@ -255,168 +293,120 @@ export default function RepaymentForm({
             inputMode="decimal"
             placeholder="0"
             value={amount}
+            disabled={isZeroBalance}
             onChange={(e) => {
               setAmount(e.target.value);
               setErrorMessage(null);
             }}
-            className="w-full h-[52px] text-2xl font-bold text-center tracking-tight bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary focus:border-accent outline-none"
-            autoFocus
+            className={`w-full h-[52px] text-2xl font-bold text-center tracking-tight bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary focus:border-accent outline-none ${
+              isZeroBalance ? 'opacity-40 cursor-not-allowed' : ''
+            }`}
+            autoFocus={!isZeroBalance}
           />
         </div>
 
         {/* Remaining Debt Indicator */}
-        <div className={`p-3.5 rounded-xl border text-xs flex items-center justify-between ${
-          isOverpayment
-            ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-            : remainingDebt === 0
-            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-            : 'bg-secondary/40 border-[var(--border-color)] text-text-secondary'
-        }`}>
-          <div className="flex items-center gap-2">
-            {isOverpayment ? (
-              <AlertCircle size={15} className="text-rose-400 flex-shrink-0" />
-            ) : remainingDebt === 0 ? (
-              <CheckCircle2 size={15} className="text-emerald-400 flex-shrink-0" />
-            ) : null}
-            <span>
-              {isOverpayment
-                ? `Exceeds balance by ${currency}${(amountFloat - absDebt).toFixed(2)}`
-                : remainingDebt === 0
-                ? 'Balance will be fully settled (₹0 remaining)'
-                : `Remaining balance after payment: ${currency}${remainingDebt}`}
-            </span>
-          </div>
-        </div>
-
-        {/* Payment Channel Selection */}
-        {!isTheyPaidMe ? (
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-text-secondary block">Payment & Recording Option</label>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setOutgoingChannel('UPI_LAUNCH')}
-                className={`p-3 rounded-xl border text-left transition-all ${
-                  outgoingChannel === 'UPI_LAUNCH'
-                    ? 'border-accent bg-accent/15'
-                    : 'border-[var(--border-color)] bg-secondary/40 hover:border-accent/40'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 mb-1">
-                  <ExternalLink size={14} className={outgoingChannel === 'UPI_LAUNCH' ? 'text-accent' : 'text-text-muted'} />
-                  <span className="text-xs font-semibold text-text-primary">Launch UPI</span>
-                </div>
-                <p className="text-[11px] text-text-muted leading-tight">Pay via UPI app</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setOutgoingChannel('CASH')}
-                className={`p-3 rounded-xl border text-left transition-all ${
-                  outgoingChannel === 'CASH'
-                    ? 'border-accent bg-accent/15'
-                    : 'border-[var(--border-color)] bg-secondary/40 hover:border-accent/40'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Banknote size={14} className={outgoingChannel === 'CASH' ? 'text-accent' : 'text-text-muted'} />
-                  <span className="text-xs font-semibold text-text-primary">Cash</span>
-                </div>
-                <p className="text-[11px] text-text-muted leading-tight">Cash handed over</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setOutgoingChannel('ALREADY_COMPLETED')}
-                className={`p-3 rounded-xl border text-left transition-all ${
-                  outgoingChannel === 'ALREADY_COMPLETED'
-                    ? 'border-accent bg-accent/15'
-                    : 'border-[var(--border-color)] bg-secondary/40 hover:border-accent/40'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 mb-1">
-                  <ShieldCheck size={14} className={outgoingChannel === 'ALREADY_COMPLETED' ? 'text-accent' : 'text-text-muted'} />
-                  <span className="text-xs font-semibold text-text-primary">Completed</span>
-                </div>
-                <p className="text-[11px] text-text-muted leading-tight">Paid outside app</p>
-              </button>
-            </div>
-
-            {outgoingChannel === 'ALREADY_COMPLETED' && (
-              <div className="p-3.5 rounded-xl bg-secondary/40 border border-[var(--border-color)] space-y-2 animate-fade-in">
-                <span className="text-xs text-text-secondary block">How did you pay previously?</span>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: 'UPI', label: 'UPI' },
-                    { id: 'OTHER', label: 'Net Banking' },
-                    { id: 'CASH', label: 'Cash' },
-                  ].map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => setCompletedMethod(m.id)}
-                      className={`h-[40px] px-2 rounded-lg border text-xs font-medium transition-all ${
-                        completedMethod === m.id
-                          ? 'border-accent bg-accent/20 text-text-primary font-semibold'
-                          : 'border-[var(--border-color)] bg-secondary/60 text-text-secondary hover:text-text-primary'
-                      }`}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-text-secondary block">How did you receive this repayment?</label>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { id: 'UPI', label: 'UPI Received', icon: CreditCard },
-                { id: 'CASH', label: 'Cash Received', icon: Banknote },
-                { id: 'OTHER', label: 'Bank / Other', icon: CreditCard },
-              ].map((m) => {
-                const Icon = m.icon;
-                const isSelected = incomingMethod === m.id;
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => setIncomingMethod(m.id)}
-                    className={`h-[46px] px-2 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
-                      isSelected
-                        ? 'border-accent bg-accent/15 text-text-primary font-semibold'
-                        : 'border-[var(--border-color)] bg-secondary/40 text-text-secondary hover:border-accent/40'
-                    }`}
-                  >
-                    <Icon size={14} /> {m.label}
-                  </button>
-                );
-              })}
+        {!isZeroBalance && (
+          <div className={`p-3.5 rounded-xl border text-xs flex items-center justify-between ${
+            isOverpayment
+              ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+              : remainingDebt === 0
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+              : 'bg-secondary/40 border-[var(--border-color)] text-text-secondary'
+          }`}>
+            <div className="flex items-center gap-2">
+              {isOverpayment ? (
+                <AlertCircle size={15} className="text-rose-400 flex-shrink-0" />
+              ) : remainingDebt === 0 ? (
+                <CheckCircle2 size={15} className="text-emerald-400 flex-shrink-0" />
+              ) : null}
+              <span>
+                {isOverpayment
+                  ? `Exceeds balance by ${currency}${(amountFloat - absDebt).toFixed(2)}`
+                  : remainingDebt === 0
+                  ? 'Balance will be fully settled (₹0 remaining)'
+                  : `Remaining balance after payment: ${currency}${remainingDebt}`}
+              </span>
             </div>
           </div>
         )}
 
-        {/* Description */}
+        {/* Payment Resolution: Outgoing vs Incoming */}
+        {!isZeroBalance && (
+          !isTheyPaidMe ? (
+            <PaymentRecipientResolver
+              person={selectedPersonObj || { name: selectedPerson, id: '', upiId: resolvedUpiId }}
+              amount={amount}
+              onAmountChange={(newAmt) => setAmount(newAmt)}
+              channel={outgoingChannel}
+              onChannelChange={(ch) => setOutgoingChannel(ch)}
+              completedMethod={completedMethod}
+              onCompletedMethodChange={(m) => setCompletedMethod(m)}
+              resolvedUpiId={resolvedUpiId}
+              onResolvedUpiIdChange={(upi) => setResolvedUpiId(upi)}
+              store={store}
+              currency={currency}
+              onLaunchUpi={(opts) => {
+                setUpiLaunchMode(opts?.mode || (resolvedUpiId && isValidUpiId(resolvedUpiId) ? 'DIRECT_UPI' : 'GOOGLE_PAY'));
+                setShowUpiModal(true);
+              }}
+            />
+          ) : (
+            /* Incoming repayment: method received */
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-text-secondary block">How did you receive the payment?</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'UPI', label: 'UPI Transfer', icon: CreditCard },
+                  { id: 'CASH', label: 'Cash', icon: Banknote },
+                  { id: 'OTHER', label: 'Bank / Other', icon: CreditCard },
+                ].map((m) => {
+                  const Icon = m.icon;
+                  const isSelected = incomingMethod === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setIncomingMethod(m.id)}
+                      className={`h-[46px] px-2 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
+                        isSelected
+                          ? 'border-accent bg-accent/15 text-text-primary font-semibold'
+                          : 'border-[var(--border-color)] bg-secondary/40 text-text-secondary hover:border-accent/40'
+                      }`}
+                    >
+                      <Icon size={14} /> {m.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )
+        )}
+
+        {/* Description & Date */}
         <div>
           <label className="text-xs font-medium text-text-secondary mb-1.5 block">Description</label>
           <input
-            placeholder={isTheyPaidMe ? 'e.g. Repayment received' : 'e.g. Repaid loan'}
+            placeholder={isTheyPaidMe ? 'Repayment received' : 'Repayment sent'}
             value={description}
+            disabled={isZeroBalance}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full h-[48px] px-3.5 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
+            className={`w-full h-[48px] px-3.5 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none ${
+              isZeroBalance ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
           />
         </div>
 
-        {/* Date */}
         <div>
           <label className="text-xs font-medium text-text-secondary mb-1.5 block">Date</label>
           <input
             type="date"
             value={date}
+            disabled={isZeroBalance}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full h-[48px] px-3 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none"
+            className={`w-full h-[48px] px-3 bg-secondary border border-[var(--border-color)] rounded-xl text-text-primary text-sm focus:border-accent outline-none ${
+              isZeroBalance ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
           />
         </div>
 
@@ -427,28 +417,33 @@ export default function RepaymentForm({
         )}
 
         {/* Submit Button */}
-        <button
-          type="submit"
-          disabled={isOverpayment}
-          className={`btn btn-primary w-full h-[48px] mt-2 font-semibold rounded-xl ${
-            isOverpayment ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
-        >
-          {isEdit
-            ? 'Save Changes'
-            : !isTheyPaidMe && outgoingChannel === 'UPI_LAUNCH'
-            ? 'Continue to UPI App'
-            : 'Record Repayment'}
-        </button>
+        {(isTheyPaidMe || outgoingChannel !== 'UPI' || isZeroBalance) && (
+          <button
+            type="submit"
+            disabled={isOverpayment || isZeroBalance || amountFloat <= 0}
+            className="btn btn-primary w-full h-[48px] mt-2 font-semibold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {isEdit
+              ? 'Save Changes'
+              : isZeroBalance
+              ? 'Already Settled (No Repayment Due)'
+              : isTheyPaidMe
+              ? 'Record Repayment Received'
+              : 'Record Repayment Paid'}
+          </button>
+        )}
       </form>
 
-      {/* Outgoing UPI Modal */}
+      {/* Outgoing UPI Modal (only for outgoing repayment with UPI) */}
       {showUpiModal && store && (
         <UpiModal
           isOpen={showUpiModal}
+          recipientId={selectedPersonObj?.id || null}
           recipientName={selectedPerson.trim()}
-          recipientUpiId={recipientUpiId}
+          recipientUpiId={resolvedUpiId || ''}
+          recipientPhone={selectedPersonObj?.phone || ''}
           amount={amountFloat}
+          mode={upiLaunchMode}
           note={description.trim() || `PocketLedger repayment to ${selectedPerson.trim()}`}
           ledgerTxnData={{
             type: 'settle',

@@ -16,6 +16,7 @@ import {
   computePersonBalance,
   isPositiveInteger,
 } from './ledger.js';
+import { cleanPhoneNumber } from './upi-qr.js';
 
 /**
  * Default generator for stable IDs.
@@ -133,6 +134,7 @@ export function migrateV1ToV2(legacyState, options = {}) {
   const rawTxns = Array.isArray(legacyState.transactions) ? legacyState.transactions : [];
   const rawPeople = Array.isArray(legacyState.people) ? legacyState.people : [];
   const rawAlarms = Array.isArray(legacyState.pendingAlarms) ? legacyState.pendingAlarms : [];
+  const rawPaymentAttempts = Array.isArray(legacyState.paymentAttempts) ? legacyState.paymentAttempts : [];
 
   // 2. Person Identity Migration
   const migratedPeople = [];
@@ -150,6 +152,8 @@ export function migrateV1ToV2(legacyState, options = {}) {
 
     const personId = typeof p.id === 'string' && p.id.trim() ? p.id.trim() : idGen();
     const upiId = typeof p.upiId === 'string' ? p.upiId.trim() : '';
+    const rawPhone = typeof p.phone === 'string' ? p.phone.trim() : (typeof p.phoneNumber === 'string' ? p.phoneNumber.trim() : '');
+    const phone = rawPhone ? cleanPhoneNumber(rawPhone) : '';
 
     if (!personNameToId.has(rawName)) {
       personNameToId.set(rawName, personId);
@@ -157,8 +161,9 @@ export function migrateV1ToV2(legacyState, options = {}) {
         id: personId,
         name: rawName,
         upiId,
-        isArchived: false,
-        createdAt: currentTimestamp,
+        phone,
+        isArchived: typeof p.isArchived === 'boolean' ? p.isArchived : false,
+        createdAt: typeof p.createdAt === 'number' && Number.isFinite(p.createdAt) ? p.createdAt : currentTimestamp,
         updatedAt: currentTimestamp,
       });
     } else {
@@ -170,6 +175,7 @@ export function migrateV1ToV2(legacyState, options = {}) {
         primaryId,
         duplicateId: personId,
         upiId,
+        phone,
         reason: 'Multiple entries in legacy people directory with identical display name',
       });
     }
@@ -186,6 +192,17 @@ export function migrateV1ToV2(legacyState, options = {}) {
           namesToCheck.push(s.person.trim());
         }
       }
+    } else if (txn.type === 'personal_expense') {
+      const rawPayer = (typeof txn.paidBy === 'string' ? txn.paidBy.trim() : '') ||
+                       (typeof txn.payer === 'string' ? txn.payer.trim() : '') ||
+                       (typeof txn.person === 'string' ? txn.person.trim() : '');
+      const isUser = !rawPayer ||
+                     rawPayer.toLowerCase() === 'user' ||
+                     rawPayer.toLowerCase() === 'you' ||
+                     rawPayer === PARTY_USER;
+      if (!isUser) {
+        namesToCheck.push(rawPayer);
+      }
     } else if (typeof txn.person === 'string' && txn.person.trim()) {
       namesToCheck.push(txn.person.trim());
     }
@@ -198,6 +215,7 @@ export function migrateV1ToV2(legacyState, options = {}) {
           id: newId,
           name,
           upiId: '',
+          phone: '',
           isArchived: false,
           createdAt: typeof txn.createdAt === 'number' ? txn.createdAt : currentTimestamp,
           updatedAt: currentTimestamp,
@@ -247,6 +265,31 @@ export function migrateV1ToV2(legacyState, options = {}) {
     switch (txn.type) {
       case 'give': {
         const personName = typeof txn.person === 'string' ? txn.person.trim() : '';
+
+        // Empty or whitespace-only person represents a solo personal expense paid by user
+        if (!personName) {
+          const event = {
+            id: eventId,
+            kind: EVENT_KINDS.EXPENSE,
+            payerId: PARTY_USER,
+            totalAmountPaise: amountPaise,
+            userSharePaise: amountPaise,
+            allocations: [],
+            date: calendarDate,
+            createdAt,
+            description,
+            category,
+            paymentMethod: txn.paymentMethod || 'OTHER',
+            metadata: {
+              originalType: 'give',
+              ...(txn.paymentAttemptId ? { paymentAttemptId: txn.paymentAttemptId } : {}),
+              ...(txn.metadata && typeof txn.metadata === 'object' ? txn.metadata : {}),
+            },
+          };
+          migratedTransactions.push(event);
+          break;
+        }
+
         const personId = personNameToId.get(personName) || idGen();
 
         const event = {
@@ -259,12 +302,14 @@ export function migrateV1ToV2(legacyState, options = {}) {
           createdAt,
           description,
           category,
-          paymentMethod: 'OTHER',
+          paymentMethod: txn.paymentMethod || 'OTHER',
           reviewRequired: true,
           metadata: {
             originalType: 'give',
             legacyPersonName: personName,
             note: 'Legacy give: balance effect +amount preserved. Review required to classify as peer loan or personal expense.',
+            ...(txn.paymentAttemptId ? { paymentAttemptId: txn.paymentAttemptId } : {}),
+            ...(txn.metadata && typeof txn.metadata === 'object' ? txn.metadata : {}),
           },
         };
 
@@ -276,6 +321,46 @@ export function migrateV1ToV2(legacyState, options = {}) {
           personName,
           amountPaise,
         });
+        break;
+      }
+
+      case 'personal_expense': {
+        const rawPayer = (typeof txn.paidBy === 'string' ? txn.paidBy.trim() : '') ||
+                         (typeof txn.payer === 'string' ? txn.payer.trim() : '') ||
+                         (typeof txn.person === 'string' ? txn.person.trim() : '');
+        const isPaidByUser = !rawPayer ||
+                             rawPayer.toLowerCase() === 'user' ||
+                             rawPayer.toLowerCase() === 'you' ||
+                             rawPayer === PARTY_USER;
+
+        let payerId = PARTY_USER;
+        if (!isPaidByUser) {
+          payerId = personNameToId.get(rawPayer) ||
+                    migratedPeople.find((p) => p.id === rawPayer || p.name === rawPayer)?.id ||
+                    idGen();
+        }
+
+        const event = {
+          id: eventId,
+          kind: EVENT_KINDS.EXPENSE,
+          payerId,
+          totalAmountPaise: amountPaise,
+          userSharePaise: amountPaise,
+          allocations: [],
+          date: calendarDate,
+          createdAt,
+          description,
+          category,
+          paymentMethod: txn.paymentMethod || 'OTHER',
+          metadata: {
+            originalType: 'personal_expense',
+            ...(rawPayer ? { legacyPayer: rawPayer } : {}),
+            ...(txn.paymentAttemptId ? { paymentAttemptId: txn.paymentAttemptId } : {}),
+            ...(txn.metadata && typeof txn.metadata === 'object' ? txn.metadata : {}),
+          },
+        };
+
+        migratedTransactions.push(event);
         break;
       }
 
@@ -293,12 +378,14 @@ export function migrateV1ToV2(legacyState, options = {}) {
           createdAt,
           description,
           category,
-          paymentMethod: 'OTHER',
+          paymentMethod: txn.paymentMethod || 'OTHER',
           reviewRequired: true,
           metadata: {
             originalType: 'take',
             legacyPersonName: personName,
             note: 'Legacy take: balance effect -amount preserved. Review required to classify as peer borrowing or counterparty-paid expense.',
+            ...(txn.paymentAttemptId ? { paymentAttemptId: txn.paymentAttemptId } : {}),
+            ...(txn.metadata && typeof txn.metadata === 'object' ? txn.metadata : {}),
           },
         };
 
@@ -313,10 +400,65 @@ export function migrateV1ToV2(legacyState, options = {}) {
         break;
       }
 
-      case 'settle': {
+      case 'settle':
+      case 'repayment': {
         const personName = typeof txn.person === 'string' ? txn.person.trim() : '';
-        const personId = personNameToId.get(personName) || idGen();
+        const personId = (txn.personId && migratedPeople.find((p) => p.id === txn.personId)?.id) ||
+                         personNameToId.get(personName) ||
+                         migratedPeople.find((p) => p.id === personName || p.name === personName)?.id ||
+                         idGen();
+        const rawDirection = typeof txn.direction === 'string' ? txn.direction.trim().toLowerCase() : '';
 
+        if (rawDirection === 'inflow') {
+          const event = {
+            id: eventId,
+            kind: EVENT_KINDS.REPAYMENT,
+            fromPartyId: personId,
+            toPartyId: PARTY_USER,
+            amountPaise,
+            date: calendarDate,
+            createdAt,
+            description: description || 'Repayment received',
+            category: txn.category || 'Settlement',
+            paymentMethod: txn.paymentMethod || 'OTHER',
+            metadata: {
+              originalType: txn.type || 'settle',
+              legacyPersonName: personName,
+              direction: 'inflow',
+              ...(txn.paymentAttemptId ? { paymentAttemptId: txn.paymentAttemptId } : {}),
+              ...(txn.metadata && typeof txn.metadata === 'object' ? txn.metadata : {}),
+            },
+          };
+          migratedTransactions.push(event);
+          break;
+        }
+
+        if (rawDirection === 'outflow') {
+          const event = {
+            id: eventId,
+            kind: EVENT_KINDS.REPAYMENT,
+            fromPartyId: PARTY_USER,
+            toPartyId: personId,
+            amountPaise,
+            date: calendarDate,
+            createdAt,
+            description: description || 'Repayment sent',
+            category: txn.category || 'Settlement',
+            paymentMethod: txn.paymentMethod || 'OTHER',
+            metadata: {
+              originalType: txn.type || 'settle',
+              legacyPersonName: personName,
+              direction: 'outflow',
+              ...(txn.paymentAttemptId ? { paymentAttemptId: txn.paymentAttemptId } : {}),
+              ...(txn.metadata && typeof txn.metadata === 'object' ? txn.metadata : {}),
+            },
+          };
+          migratedTransactions.push(event);
+          break;
+        }
+
+        // Truly ambiguous legacy settlement without explicit direction:
+        // Retain existing LEGACY_UNCLASSIFIED treatment, balance effect (-amount), and review items.
         const event = {
           id: eventId,
           kind: EVENT_KINDS.LEGACY_UNCLASSIFIED,
@@ -327,13 +469,15 @@ export function migrateV1ToV2(legacyState, options = {}) {
           createdAt,
           description,
           category: txn.category || 'Settlement',
-          paymentMethod: 'OTHER',
+          paymentMethod: txn.paymentMethod || 'OTHER',
           reviewRequired: true,
           metadata: {
-            originalType: 'settle',
+            originalType: txn.type || 'settle',
             legacyPersonName: personName,
             directionUnverified: true,
             note: 'Legacy settlement: balance effect -amount preserved. Direction unverified; review required to confirm inflow vs outflow.',
+            ...(txn.paymentAttemptId ? { paymentAttemptId: txn.paymentAttemptId } : {}),
+            ...(txn.metadata && typeof txn.metadata === 'object' ? txn.metadata : {}),
           },
         };
 
@@ -374,10 +518,12 @@ export function migrateV1ToV2(legacyState, options = {}) {
           createdAt,
           description,
           category: txn.category || 'Adjustment',
-          paymentMethod: 'OTHER',
+          paymentMethod: txn.paymentMethod || 'OTHER',
           metadata: {
             originalType: 'adjustment',
             legacyPersonName: personName,
+            ...(txn.paymentAttemptId ? { paymentAttemptId: txn.paymentAttemptId } : {}),
+            ...(txn.metadata && typeof txn.metadata === 'object' ? txn.metadata : {}),
           },
         };
 
@@ -436,9 +582,11 @@ export function migrateV1ToV2(legacyState, options = {}) {
             createdAt,
             description,
             category,
-            paymentMethod: 'OTHER',
+            paymentMethod: txn.paymentMethod || 'OTHER',
             metadata: {
               originalType: 'split',
+              ...(txn.paymentAttemptId ? { paymentAttemptId: txn.paymentAttemptId } : {}),
+              ...(txn.metadata && typeof txn.metadata === 'object' ? txn.metadata : {}),
             },
           };
 
@@ -470,11 +618,12 @@ export function migrateV1ToV2(legacyState, options = {}) {
             createdAt: createdAt + sIdx,
             description: `${description} (Split allocation)`,
             category,
-            paymentMethod: 'OTHER',
+            paymentMethod: txn.paymentMethod || 'OTHER',
             reviewRequired: true,
             metadata: {
               originalType: 'split',
               parentSplitId: eventId,
+              ...(txn.metadata && typeof txn.metadata === 'object' ? txn.metadata : {}),
             },
           });
         }
@@ -516,14 +665,107 @@ export function migrateV1ToV2(legacyState, options = {}) {
     reviewItems.pendingAlarms.push(migratedAlarm);
   }
 
-  // 5. Settings Preservation
+  // 5. Payment Attempts Migration
+  const migratedPaymentAttempts = [];
+  for (let i = 0; i < rawPaymentAttempts.length; i++) {
+    const att = rawPaymentAttempts[i];
+    if (!att || typeof att !== 'object') {
+      warnings.push(`Skipped invalid or non-object payment attempt at index ${i}`);
+      continue;
+    }
+
+    const attemptId = typeof att.id === 'string' && att.id.trim() ? att.id.trim() : idGen();
+    const cleanType = typeof att.type === 'string' && att.type.trim() ? att.type.trim() : 'UPI';
+    const cleanRecipientName = typeof att.recipientName === 'string' ? att.recipientName.trim() : '';
+    const cleanUpiId = typeof att.recipientUpiId === 'string' ? att.recipientUpiId.trim() : '';
+
+    // Recipient Party ID resolution:
+    // 1. If recipientPartyId is explicitly provided, verify/preserve it.
+    // 2. If missing/null, resolve through exact match against existing contacts in migratedPeople.
+    // 3. Do not generate synthetic people or guess ambiguous identities (seenNameCounts > 1).
+    let recipientPartyId = null;
+    if (typeof att.recipientPartyId === 'string' && att.recipientPartyId.trim()) {
+      recipientPartyId = att.recipientPartyId.trim();
+    } else if (cleanRecipientName) {
+      if ((seenNameCounts.get(cleanRecipientName) || 0) <= 1) {
+        recipientPartyId = personNameToId.get(cleanRecipientName) || null;
+      }
+    }
+
+    // Money normalization:
+    // If amountPaise is already a finite non-negative integer, preserve it.
+    // Otherwise, convert from amountRupees or legacy amount.
+    let amountPaise = 0;
+    let amountRupees = 0;
+
+    if (typeof att.amountPaise === 'number' && Number.isFinite(att.amountPaise) && att.amountPaise >= 0) {
+      amountPaise = Math.round(att.amountPaise);
+      amountRupees = typeof att.amountRupees === 'number' && Number.isFinite(att.amountRupees)
+        ? att.amountRupees
+        : amountPaise / 100;
+    } else {
+      const rawRupees = typeof att.amountRupees === 'number' && Number.isFinite(att.amountRupees)
+        ? att.amountRupees
+        : (typeof att.amount === 'number' && Number.isFinite(att.amount) ? att.amount : 0);
+      const conv = convertRupeesToPaise(rawRupees);
+      amountPaise = conv.isValid ? conv.amountPaise : 0;
+      amountRupees = rawRupees;
+    }
+
+    const intentUrl = typeof att.intentUrl === 'string' ? att.intentUrl : '';
+
+    // Preserve exact status, including unknown but valid custom status values
+    const status = typeof att.status === 'string' && att.status.trim() ? att.status.trim() : 'INITIATED';
+
+    const initiatedAt = typeof att.initiatedAt === 'number' && Number.isFinite(att.initiatedAt)
+      ? att.initiatedAt
+      : (typeof att.createdAt === 'number' && Number.isFinite(att.createdAt) ? att.createdAt : currentTimestamp);
+
+    const reconciledAt = typeof att.reconciledAt === 'number' && Number.isFinite(att.reconciledAt)
+      ? att.reconciledAt
+      : null;
+
+    const reconciliationNotes = typeof att.reconciliationNotes === 'string' ? att.reconciliationNotes : '';
+
+    const eventId = typeof att.eventId === 'string' && att.eventId.trim() ? att.eventId.trim() : null;
+
+    const isUnresolved = typeof att.isUnresolved === 'boolean'
+      ? att.isUnresolved
+      : (status === 'INITIATED' || status === 'UNKNOWN');
+
+    const metadata = att.metadata && typeof att.metadata === 'object' && !Array.isArray(att.metadata)
+      ? { ...att.metadata }
+      : {};
+
+    const migratedAttempt = {
+      id: attemptId,
+      type: cleanType,
+      recipientPartyId,
+      recipientName: cleanRecipientName,
+      recipientUpiId: cleanUpiId,
+      amountPaise,
+      amountRupees,
+      intentUrl,
+      status,
+      initiatedAt,
+      reconciledAt,
+      reconciliationNotes,
+      eventId,
+      isUnresolved,
+      metadata,
+    };
+
+    migratedPaymentAttempts.push(migratedAttempt);
+  }
+
+  // 6. Settings Preservation
   const rawSettings = legacyState.settings && typeof legacyState.settings === 'object' ? legacyState.settings : {};
   const budgetConv = convertRupeesToPaise(rawSettings.monthlyBudget || 0);
 
   const migratedSettings = {
     currencySymbol: typeof rawSettings.currency === 'string' && rawSettings.currency.trim() ? rawSettings.currency.trim() : '₹',
     monthlyBudgetPaise: budgetConv.isValid ? budgetConv.amountPaise : 0,
-    theme: ['fantasy', 'elden', 'cyber', 'pixel', 'graphite'].includes(rawSettings.theme) ? rawSettings.theme : (rawSettings.theme || 'graphite'),
+    theme: 'graphite',
   };
 
   // Preserve any custom categories
@@ -531,7 +773,7 @@ export function migrateV1ToV2(legacyState, options = {}) {
     ? [...legacyState.categories]
     : ['Food', 'Transport', 'Shopping', 'Entertainment', 'Bills', 'Health', 'Education', 'Other'];
 
-  // 6. Validation of Migrated State
+  // 7. Validation of Migrated State
   for (const event of migratedTransactions) {
     const val = validateEvent(event);
     if (!val.isValid) {
@@ -546,7 +788,7 @@ export function migrateV1ToV2(legacyState, options = {}) {
     transactions: migratedTransactions,
     people: migratedPeople,
     categories,
-    paymentAttempts: [],
+    paymentAttempts: migratedPaymentAttempts,
     pendingReviews: {
       ...reviewItems,
       migratedAlarms: migratedPendingAlarms,

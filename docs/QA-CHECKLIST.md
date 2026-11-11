@@ -106,15 +106,15 @@ This manual QA checklist provides step-by-step test scenarios and expected resul
 
 ---
 
-### Suite 7: Visual Polish & 4 Distinct Themes
+### Suite 7: Visual Polish & Universal Graphite Design
 
 | Step # | Test Action | Expected Result | Pass/Fail |
 |---|---|---|---|
-| 7.1 | Switch to **Fantasy Theme** (🐺 House Stark). | Palette switches to cold slate & iron (`#0f1115`), icy silver text (`#e6ebf2`), cold steel accents (`#8da6c4`), Stark Direwolf sigil, cold forged card overlays. | [ ] |
-| 7.2 | Switch to **Elden Theme** (✨ Golden Grace). | Palette switches to dark obsidian stone (`#08080a`), warm parchment cream text (`#f5eedc`), sacred Grace gold accents (`#e5c158`), Elden Rune seal, parchment textures. | [ ] |
-| 7.3 | Switch to **Cyber Theme** (⚡ Solo Leveling HUD). | Palette switches to deep space void (`#060714`), holographic white (`#f0f6fc`), electric cyan/purple neon accents (`#00f0ff`), S-Rank Hunter Badge, Arcane Watermark. | [ ] |
-| 7.4 | Switch to **Pixel Theme** (⛏️ Minecraft 8-Bit Retro). | Palette switches to Minecraft GUI stone bevels (`#2b2b2b`), emerald green accents (`#55ff55`), XP bar, Spawn Egg FAB. **Headings use 8-bit retro font, while body copy, inputs, numbers, and notes remain cleanly legible in high-contrast monospace.** | [ ] |
-| 7.5 | Test on Desktop (1440×900). | Content is centered within `max-w-3xl` container; Tab bar centered at bottom; FAB stays aligned near centered container. | [ ] |
+| 7.1 | Inspect **Universal Graphite Palette**. | Background renders dark graphite canvas (`#0b0c10`), cards in secondary graphite (`#14161d`), clean borders (`#212631`), crisp primary text (`#f3f4f6`), and refined steel blue accent (`#3b82f6` / `#60a5fa`). | [ ] |
+| 7.2 | Inspect **Typography & Font Rendering**. | Global typography cleanly renders `Inter` across all headings, monetary figures, forms, notes, and activity lists with clean anti-aliasing and tabular figures on balances. | [ ] |
+| 7.3 | Inspect **Financial Status Indicators**. | Receivables and positive balances render in clear emerald (`text-emerald-400`); payables and liabilities render in clear rose (`text-rose-400`); settled zero balances render in neutral muted slate. | [ ] |
+| 7.4 | Inspect **Interactive Surfaces & Feedback**. | Action selectors, bottom sheet modals, and buttons have smooth hover/press states without abrupt layout shifts or clipped focus outlines. | [ ] |
+| 7.5 | Test on Desktop (1440×900). | Content is centered within `max-w-2xl` container; Tab bar centered at bottom; FAB stays aligned near centered container. | [ ] |
 | 7.6 | Test on Mobile (390×844). | Full width layout; no horizontal overflow; bottom bar respects `env(safe-area-inset-bottom)`. | [ ] |
 
 ---

@@ -2,11 +2,14 @@
   "name": "pocketledger",
   "private": true,
   "version": "1.0.0",
+  "license": "MIT",
+  "description": "Offline-first personal expense tracker, shared bill splitter, and peer lending ledger with pure integer-paise accounting.",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview --host"
+    "preview": "vite preview --host",
+    "test": "node --test src/domain/*.test.mjs"
   },
   "dependencies": {
     "react": "^19.1.0",

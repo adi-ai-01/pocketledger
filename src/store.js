@@ -11,17 +11,54 @@ import {
 const defaultStorage = typeof window !== 'undefined' ? window.localStorage : null;
 export const globalStoreCore = new StoreCore({ storage: defaultStorage });
 
-/** Compute net lending balance for every person from transactions */
-export function computeLendingBalances(transactions) {
-  if (globalStoreCore) {
-    const projectedTxns = globalStoreCore.getState().transactions;
-    if (transactions === projectedTxns || !transactions) {
-      return globalStoreCore.computeBalances();
+function extractPeopleFromTransactions(transactions = []) {
+  const peopleMap = new Map();
+  if (globalStoreCore?.state?.people) {
+    for (const p of globalStoreCore.state.people) {
+      if (p?.id) peopleMap.set(p.id, p);
     }
   }
+  for (const t of transactions || []) {
+    if (!t) continue;
+    const raw = t.rawEvent || t;
+    const personId = t.personId || raw.personId || (raw.fromPartyId && raw.fromPartyId !== 'USER' ? raw.fromPartyId : (raw.toPartyId && raw.toPartyId !== 'USER' ? raw.toPartyId : null));
+    const personName = t.person || t.payerName || t.personName;
+    if (personId && personName && personId !== 'USER') {
+      peopleMap.set(personId, { id: personId, name: personName, upiId: t.upiId || '' });
+    }
+    if (Array.isArray(t.splits)) {
+      for (const s of t.splits) {
+        if (s?.personId && s?.person) {
+          peopleMap.set(s.personId, { id: s.personId, name: s.person, upiId: s.upiId || '' });
+        }
+      }
+    }
+    if (Array.isArray(raw.allocations)) {
+      for (const a of raw.allocations) {
+        if (a?.personId && a?.person) {
+          peopleMap.set(a.personId, { id: a.personId, name: a.person, upiId: a.upiId || '' });
+        }
+      }
+    }
+  }
+  return [...peopleMap.values()];
+}
+
+/** Compute net lending balance for every person from transactions */
+export function computeLendingBalances(transactions) {
+  if (!transactions && globalStoreCore) {
+    return globalStoreCore.computeBalances();
+  }
+
+  const isV2 = Array.isArray(transactions) && transactions.some((t) => t?.kind || t?.rawEvent);
+  const canonicalTxns = isV2 ? transactions.map((t) => t.rawEvent || t) : (transactions || []);
 
   const tempCore = new StoreCore({
-    initialState: {
+    initialState: isV2 ? {
+      schemaVersion: 2,
+      transactions: canonicalTxns,
+      people: extractPeopleFromTransactions(transactions),
+    } : {
       version: 1,
       transactions: transactions || [],
       people: [],
@@ -33,15 +70,19 @@ export function computeLendingBalances(transactions) {
 
 /** Monthly analytics — spending by category, daily totals, totals */
 export function computeMonthlyAnalytics(transactions, year, month) {
-  if (globalStoreCore) {
-    const projectedTxns = globalStoreCore.getState().transactions;
-    if (transactions === projectedTxns || !transactions) {
-      return globalStoreCore.computeMonthlyAnalytics(year, month);
-    }
+  if (!transactions && globalStoreCore) {
+    return globalStoreCore.computeMonthlyAnalytics(year, month);
   }
 
+  const isV2 = Array.isArray(transactions) && transactions.some((t) => t?.kind || t?.rawEvent);
+  const canonicalTxns = isV2 ? transactions.map((t) => t.rawEvent || t) : (transactions || []);
+
   const tempCore = new StoreCore({
-    initialState: {
+    initialState: isV2 ? {
+      schemaVersion: 2,
+      transactions: canonicalTxns,
+      people: extractPeopleFromTransactions(transactions),
+    } : {
       version: 1,
       transactions: transactions || [],
       people: [],
@@ -93,7 +134,8 @@ export function useStore() {
   const deleteTransaction = useCallback((id) => globalStoreCore.deleteTransaction(id), []);
 
   // ── People ──
-  const addPerson = useCallback((name, upiId) => globalStoreCore.addPerson(name, upiId), []);
+  const addPerson = useCallback((name, upiId, phone) => globalStoreCore.addPerson(name, upiId, phone), []);
+  const createExplicitPerson = useCallback((data) => globalStoreCore.createExplicitPerson(data), []);
   const updatePerson = useCallback((name, data) => globalStoreCore.updatePerson(name, data), []);
   const archivePerson = useCallback((nameOrId) => globalStoreCore.archivePerson(nameOrId), []);
   const unarchivePerson = useCallback((nameOrId) => globalStoreCore.unarchivePerson(nameOrId), []);
@@ -133,10 +175,16 @@ export function useStore() {
   const dismissPaymentAttempt = useCallback((id) => globalStoreCore.dismissPaymentAttempt(id), []);
   const getPeopleWithBalances = useCallback(() => globalStoreCore.getPeopleWithBalances(), []);
 
+  // ── Canonical Calculations ──
+  const computeBalances = useCallback(() => globalStoreCore.computeBalances(), []);
+  const computeMonthlyAnalytics = useCallback((year, month) => globalStoreCore.computeMonthlyAnalytics(year, month), []);
+
   return {
     state,
     migrationStatus,
     hasRollbackBackup,
+    computeBalances,
+    computeMonthlyAnalytics,
     previewMigration,
     executeMigration,
     rollbackMigration,
@@ -151,6 +199,7 @@ export function useStore() {
     editTransaction,
     deleteTransaction,
     addPerson,
+    createExplicitPerson,
     updatePerson,
     archivePerson,
     unarchivePerson,

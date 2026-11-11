@@ -1,5 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {
   StoreCore,
   PRIMARY_STORAGE_KEY,
@@ -8,7 +9,7 @@ import {
   defaultStateV2,
   isValidUpiId,
 } from './store-core.js';
-import { EVENT_KINDS, PARTY_USER } from './ledger.js';
+import { EVENT_KINDS, PARTY_USER, allocateEqualShares } from './ledger.js';
 
 // In-Memory Storage Mock satisfying Web Storage API
 class MemoryStorage {
@@ -957,5 +958,680 @@ describe('StoreCore Integration & Migration Engine', () => {
     assert.equal(revRes.success, true);
     const updatedEvt = store.state.transactions.find((t) => t.id === 'legacy-unclass-1');
     assert.equal(updatedEvt.reviewRequired, false);
+  });
+
+  // 25. Shared Expense QA Fix: Equal Split with Demo Fixture & Contact Retention
+  test('25. Phase 7: Shared expense equal split divides ₹900 three ways, preserves contact identities, updates balances, and isolates user spending', () => {
+    const fixtureRaw = fs.readFileSync(new URL('../../test-fixtures/pocketledger-v1-demo.json', import.meta.url), 'utf8');
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    // Load fixture and migrate to v2
+    store.importData(fixtureRaw);
+    const migRes = store.executeMigration();
+    assert.equal(migRes.success, true);
+
+    const dirBefore = store.getPeopleDirectory();
+    assert.equal(dirBefore.length, 4);
+
+    const aaravBefore = dirBefore.find((p) => p.name === 'Aarav Sharma');
+    const rohanBefore = dirBefore.find((p) => p.name === 'Rohan Verma');
+    const diyaBefore = dirBefore.find((p) => p.name === 'Diya Patel');
+    const ananyaBefore = dirBefore.find((p) => p.name === 'Ananya Iyer');
+
+    assert.equal(aaravBefore.balanceRupees, 2250);
+    assert.equal(rohanBefore.balanceRupees, 1200);
+    assert.equal(diyaBefore.balanceRupees, -900);
+    assert.equal(ananyaBefore.balanceRupees, 2200);
+
+    // Intended QA test: ₹900 bill split equally among User, Aarav Sharma, Rohan Verma (₹300 each)
+    const res = store.addTransaction({
+      type: 'shared_expense',
+      amount: 900,
+      payer: 'user',
+      userShare: 300,
+      allocations: [
+        { person: 'Aarav Sharma', personId: aaravBefore.id, amount: 300 },
+        { person: 'Rohan Verma', personId: rohanBefore.id, amount: 300 },
+      ],
+      description: 'Celebration Dinner',
+      category: 'Food',
+      date: '2026-11-10',
+    });
+    assert.equal(res.success, true);
+
+    // Verify people directory strictly contains original 4 people (no duplicate Aarav / Rohan)
+    const dirAfter = store.getPeopleDirectory();
+    assert.equal(dirAfter.length, 4, 'Must not create duplicate contacts');
+    assert.deepEqual(
+      dirAfter.map((p) => p.name).sort(),
+      ['Aarav Sharma', 'Ananya Iyer', 'Diya Patel', 'Rohan Verma']
+    );
+
+    // Verify balances updated by exact ₹300 for participants; others unchanged
+    const aaravAfter = dirAfter.find((p) => p.name === 'Aarav Sharma');
+    const rohanAfter = dirAfter.find((p) => p.name === 'Rohan Verma');
+    const diyaAfter = dirAfter.find((p) => p.name === 'Diya Patel');
+    const ananyaAfter = dirAfter.find((p) => p.name === 'Ananya Iyer');
+
+    assert.equal(aaravAfter.balanceRupees, 2550); // 2250 + 300 = 2550
+    assert.equal(rohanAfter.balanceRupees, 1500); // 1200 + 300 = 1500
+    assert.equal(diyaAfter.balanceRupees, -900);  // unchanged
+    assert.equal(ananyaAfter.balanceRupees, 2200); // unchanged
+
+    // Verify monthly personal spending counts strictly user share (₹300)
+    const analytics = store.computeMonthlyAnalytics(2026, 10); // Nov 2026
+    assert.equal(analytics.totalSpent, 300, 'Only user share (₹300) must count toward personal spending');
+
+    // Verify projected transaction in Activity
+    const txns = store.getLegacyProjectedTransactions();
+    const lastTxn = txns[txns.length - 1];
+    assert.equal(lastTxn.action, 'shared_expense');
+    assert.equal(lastTxn.amount, 900);
+    assert.equal(lastTxn.userShare, 300);
+    assert.equal(lastTxn.splits.length, 2);
+    assert.equal(lastTxn.splits[0].personId, aaravBefore.id);
+    assert.equal(lastTxn.splits[0].amount, 300);
+    assert.equal(lastTxn.splits[1].personId, rohanBefore.id);
+    assert.equal(lastTxn.splits[1].amount, 300);
+  });
+
+  // 26. Shared Expense QA Fix: Zero-value and negative allocations are rejected
+  test('26. Phase 7: Zero-value allocations are rejected and do not create people or transactions', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Aarav Sharma');
+    store.addPerson('Rohan Verma');
+    assert.equal(store.state.people.length, 2);
+
+    // Attempt to save with zero-amount allocation
+    const res = store.addTransaction({
+      type: 'shared_expense',
+      amount: 900,
+      payer: 'user',
+      userShare: 900,
+      allocations: [
+        { person: 'Aarav', amount: 0 },
+        { person: 'Rohan', amount: 0 },
+      ],
+      description: 'Zero split test',
+      category: 'Food',
+      date: '2026-11-10',
+    });
+
+    assert.equal(res.success, false);
+    assert.ok(res.error.includes('greater than ₹0'));
+
+    // Verify no new people ('Aarav' or 'Rohan') were added to state.people
+    assert.equal(store.state.people.length, 2);
+    assert.deepEqual(
+      store.state.people.map((p) => p.name).sort(),
+      ['Aarav Sharma', 'Rohan Verma']
+    );
+
+    // Verify no transaction was recorded
+    assert.equal(store.state.transactions.length, 0);
+  });
+
+  // 27. Shared Expense QA Fix: Equal Split Integer Allocation Reactivity
+  test('27. Phase 7: Equal split divides amounts deterministically across participant count changes', () => {
+    // ₹900 with 3 participants (User + 2) -> 300 each (30,000 paise)
+    const shares3 = allocateEqualShares(90000, 3);
+    assert.deepEqual(shares3, [30000, 30000, 30000]);
+
+    // ₹900 with 2 participants (User + 1) -> 450 each (45,000 paise)
+    const shares2 = allocateEqualShares(90000, 2);
+    assert.deepEqual(shares2, [45000, 45000]);
+
+    // ₹900 with 4 participants (User + 3) -> 225 each (22,500 paise)
+    const shares4 = allocateEqualShares(90000, 4);
+    assert.deepEqual(shares4, [22500, 22500, 22500, 22500]);
+
+    // ₹100 split 3 ways -> 10000 paise / 3: 3334, 3333, 3333 (first gets remainder paise)
+    const sharesRem = allocateEqualShares(10000, 3);
+    assert.deepEqual(sharesRem, [3334, 3333, 3333]);
+    assert.equal(sharesRem.reduce((a, b) => a + b, 0), 10000);
+  });
+
+  // 28. Shared Expense Editing: Editing description, category, and date preserves total, allocations, and user share
+  test('28. Shared Expense Editing: Editing description, category, and date preserves total, allocations, and user share', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Bob');
+    store.addPerson('Charlie');
+
+    const addRes = store.addTransaction({
+      type: 'shared_expense',
+      amount: 1200,
+      payer: 'user',
+      userShare: 400,
+      allocations: [
+        { person: 'Bob', amount: 400 },
+        { person: 'Charlie', amount: 400 },
+      ],
+      description: 'Original Team Dinner',
+      category: 'Food',
+      date: '2026-11-04',
+    });
+    assert.equal(addRes.success, true);
+    const txnId = store.state.transactions[0].id;
+
+    // Edit only metadata
+    const editRes = store.editTransaction(txnId, {
+      description: 'Updated Team Dinner',
+      category: 'Entertainment',
+      date: '2026-11-05',
+    });
+    assert.equal(editRes.success, true);
+
+    const updatedEvent = store.state.transactions[0];
+    assert.equal(updatedEvent.description, 'Updated Team Dinner');
+    assert.equal(updatedEvent.category, 'Entertainment');
+    assert.equal(updatedEvent.date, '2026-11-05');
+    assert.equal(updatedEvent.totalAmountPaise, 120000);
+    assert.equal(updatedEvent.userSharePaise, 40000);
+    assert.equal(updatedEvent.allocations.length, 2);
+    assert.equal(updatedEvent.allocations[0].amountPaise, 40000);
+    assert.equal(updatedEvent.allocations[1].amountPaise, 40000);
+
+    // Personal spending and peer balances remain preserved
+    assert.equal(store.computeMonthlyAnalytics(2026, 10).totalSpent, 400);
+    const balances = store.computeBalances();
+    assert.equal(balances['Bob'], 400);
+    assert.equal(balances['Charlie'], 400);
+  });
+
+  // 29. Shared Expense Editing: Changing total amount with updated allocations updates all participants and conserves
+  test('29. Shared Expense Editing: Changing total amount with updated allocations updates all participants and conserves', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Bob');
+    store.addPerson('Charlie');
+
+    const addRes = store.addTransaction({
+      type: 'shared_expense',
+      amount: 1200,
+      payer: 'user',
+      userShare: 400,
+      allocations: [
+        { person: 'Bob', amount: 400 },
+        { person: 'Charlie', amount: 400 },
+      ],
+      description: 'Team Dinner',
+      category: 'Food',
+      date: '2026-11-04',
+    });
+    assert.equal(addRes.success, true);
+    const txnId = store.state.transactions[0].id;
+
+    // Scale bill up from ₹1,200 to ₹1,800 (₹600 each)
+    const editRes = store.editTransaction(txnId, {
+      amount: 1800,
+      userShare: 600,
+      allocations: [
+        { person: 'Bob', amount: 600 },
+        { person: 'Charlie', amount: 600 },
+      ],
+    });
+    assert.equal(editRes.success, true);
+
+    const updatedEvent = store.state.transactions[0];
+    assert.equal(updatedEvent.totalAmountPaise, 180000);
+    assert.equal(updatedEvent.userSharePaise, 60000);
+    assert.equal(updatedEvent.allocations[0].amountPaise, 60000);
+    assert.equal(updatedEvent.allocations[1].amountPaise, 60000);
+    assert.equal(
+      updatedEvent.userSharePaise + updatedEvent.allocations.reduce((sum, a) => sum + a.amountPaise, 0),
+      180000
+    );
+
+    assert.equal(store.computeMonthlyAnalytics(2026, 10).totalSpent, 600);
+    const balances = store.computeBalances();
+    assert.equal(balances['Bob'], 600);
+    assert.equal(balances['Charlie'], 600);
+  });
+
+  // 30. Shared Expense Editing: Changing user's share alone with conserving allocations updates personal spending and peer balances
+  test('30. Shared Expense Editing: Changing user\'s share alone with conserving allocations updates personal spending and peer balances', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Bob');
+    store.addPerson('Charlie');
+
+    const addRes = store.addTransaction({
+      type: 'shared_expense',
+      amount: 1200,
+      payer: 'user',
+      userShare: 400,
+      allocations: [
+        { person: 'Bob', amount: 400 },
+        { person: 'Charlie', amount: 400 },
+      ],
+      description: 'Team Lunch',
+      category: 'Food',
+      date: '2026-11-04',
+    });
+    assert.equal(addRes.success, true);
+    const txnId = store.state.transactions[0].id;
+
+    // User only pays ₹200; Bob and Charlie take ₹500 each (total ₹1,200 conserved)
+    const editRes = store.editTransaction(txnId, {
+      amount: 1200,
+      userShare: 200,
+      allocations: [
+        { person: 'Bob', amount: 500 },
+        { person: 'Charlie', amount: 500 },
+      ],
+    });
+    assert.equal(editRes.success, true);
+
+    const updatedEvent = store.state.transactions[0];
+    assert.equal(updatedEvent.totalAmountPaise, 120000);
+    assert.equal(updatedEvent.userSharePaise, 20000);
+    assert.equal(updatedEvent.allocations[0].amountPaise, 50000);
+    assert.equal(updatedEvent.allocations[1].amountPaise, 50000);
+
+    // Personal spending dropped to ₹200
+    assert.equal(store.computeMonthlyAnalytics(2026, 10).totalSpent, 200);
+    // Peer receivables increased to ₹500 each
+    const balances = store.computeBalances();
+    assert.equal(balances['Bob'], 500);
+    assert.equal(balances['Charlie'], 500);
+  });
+
+  // 31. Shared Expense Editing: Changing participant allocations preserves exact conservation and updates balances
+  test('31. Shared Expense Editing: Changing participant allocations preserves exact conservation and updates balances', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Bob');
+    store.addPerson('Charlie');
+
+    const addRes = store.addTransaction({
+      type: 'shared_expense',
+      amount: 1200,
+      payer: 'user',
+      userShare: 400,
+      allocations: [
+        { person: 'Bob', amount: 400 },
+        { person: 'Charlie', amount: 400 },
+      ],
+      description: 'Team Lunch',
+      category: 'Food',
+      date: '2026-11-04',
+    });
+    assert.equal(addRes.success, true);
+    const txnId = store.state.transactions[0].id;
+
+    // Reallocate shares: Bob ₹600, Charlie ₹200, User ₹400
+    const editRes = store.editTransaction(txnId, {
+      amount: 1200,
+      userShare: 400,
+      allocations: [
+        { person: 'Bob', amount: 600 },
+        { person: 'Charlie', amount: 200 },
+      ],
+    });
+    assert.equal(editRes.success, true);
+
+    const updatedEvent = store.state.transactions[0];
+    assert.equal(updatedEvent.allocations[0].amountPaise, 60000);
+    assert.equal(updatedEvent.allocations[1].amountPaise, 20000);
+    assert.equal(updatedEvent.userSharePaise, 40000);
+
+    assert.equal(store.computeMonthlyAnalytics(2026, 10).totalSpent, 400);
+    const balances = store.computeBalances();
+    assert.equal(balances['Bob'], 600);
+    assert.equal(balances['Charlie'], 200);
+  });
+
+  // 32. Shared Expense Editing: Adding and removing participants where supported by existing UI
+  test('32. Shared Expense Editing: Adding and removing participants where supported by existing UI', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Bob');
+    store.addPerson('Charlie');
+
+    // Start with 2 participants: Bob ₹400, Charlie ₹400, User ₹400 (total ₹1,200)
+    const addRes = store.addTransaction({
+      type: 'shared_expense',
+      amount: 1200,
+      payer: 'user',
+      userShare: 400,
+      allocations: [
+        { person: 'Bob', amount: 400 },
+        { person: 'Charlie', amount: 400 },
+      ],
+      description: 'Dinner Party',
+      category: 'Food',
+      date: '2026-11-04',
+    });
+    assert.equal(addRes.success, true);
+    const txnId = store.state.transactions[0].id;
+
+    // Step A: Add participant David (split ₹1,200 four ways -> ₹300 each)
+    const addParticipantRes = store.editTransaction(txnId, {
+      amount: 1200,
+      userShare: 300,
+      allocations: [
+        { person: 'Bob', amount: 300 },
+        { person: 'Charlie', amount: 300 },
+        { person: 'David', amount: 300 },
+      ],
+    });
+    assert.equal(addParticipantRes.success, true);
+
+    const eventWithDavid = store.state.transactions[0];
+    assert.equal(eventWithDavid.allocations.length, 3);
+    const balancesAfterAdd = store.computeBalances();
+    assert.equal(balancesAfterAdd['Bob'], 300);
+    assert.equal(balancesAfterAdd['Charlie'], 300);
+    assert.equal(balancesAfterAdd['David'], 300);
+    assert.equal(store.computeMonthlyAnalytics(2026, 10).totalSpent, 300);
+
+    // Step B: Remove Charlie (leaving User, Bob, David at ₹400 each)
+    const removeCharlieRes = store.editTransaction(txnId, {
+      amount: 1200,
+      userShare: 400,
+      allocations: [
+        { person: 'Bob', amount: 400 },
+        { person: 'David', amount: 400 },
+      ],
+    });
+    assert.equal(removeCharlieRes.success, true);
+
+    const eventWithoutCharlie = store.state.transactions[0];
+    assert.equal(eventWithoutCharlie.allocations.length, 2);
+    const balancesAfterRemove = store.computeBalances();
+    assert.equal(balancesAfterRemove['Bob'], 400);
+    assert.equal(balancesAfterRemove['David'], 400);
+    assert.equal(balancesAfterRemove['Charlie'] || 0, 0);
+    assert.equal(store.computeMonthlyAnalytics(2026, 10).totalSpent, 400);
+  });
+
+  // 33. Shared Expense Editing: Removing all participants safely converts to solo user expense
+  test('33. Shared Expense Editing: Removing all participants safely converts to solo user expense', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Bob');
+
+    const addRes = store.addTransaction({
+      type: 'shared_expense',
+      amount: 800,
+      payer: 'user',
+      userShare: 400,
+      allocations: [{ person: 'Bob', amount: 400 }],
+      description: 'Groceries',
+      category: 'Food',
+      date: '2026-11-04',
+    });
+    assert.equal(addRes.success, true);
+    const txnId = store.state.transactions[0].id;
+    assert.equal(store.computeBalances()['Bob'], 400);
+
+    // Remove Bob entirely -> User absorbs whole ₹800
+    const editRes = store.editTransaction(txnId, {
+      amount: 800,
+      userShare: 800,
+      allocations: [],
+    });
+    assert.equal(editRes.success, true);
+
+    const updatedEvent = store.state.transactions[0];
+    assert.equal(updatedEvent.allocations.length, 0);
+    assert.equal(updatedEvent.userSharePaise, 80000);
+    assert.equal(updatedEvent.totalAmountPaise, 80000);
+
+    assert.equal(store.computeBalances()['Bob'] || 0, 0);
+    assert.equal(store.computeMonthlyAnalytics(2026, 10).totalSpent, 800);
+  });
+
+  // 34. Shared Expense Editing: Repeated consecutive edits maintain exact conservation and stability
+  test('34. Shared Expense Editing: Repeated consecutive edits maintain exact conservation and stability', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Bob');
+    store.addPerson('Charlie');
+
+    const addRes = store.addTransaction({
+      type: 'shared_expense',
+      amount: 900,
+      payer: 'user',
+      userShare: 300,
+      allocations: [
+        { person: 'Bob', amount: 300 },
+        { person: 'Charlie', amount: 300 },
+      ],
+      description: 'Trip Gas',
+      category: 'Transport',
+      date: '2026-11-04',
+    });
+    assert.equal(addRes.success, true);
+    const txnId = store.state.transactions[0].id;
+
+    // Edit 1: change total to ₹1,500
+    const res1 = store.editTransaction(txnId, {
+      amount: 1500,
+      userShare: 500,
+      allocations: [
+        { person: 'Bob', amount: 500 },
+        { person: 'Charlie', amount: 500 },
+      ],
+    });
+    assert.equal(res1.success, true);
+    assert.equal(store.computeBalances()['Bob'], 500);
+
+    // Edit 2: custom split (Bob ₹700, Charlie ₹300, User ₹500)
+    const res2 = store.editTransaction(txnId, {
+      amount: 1500,
+      userShare: 500,
+      allocations: [
+        { person: 'Bob', amount: 700 },
+        { person: 'Charlie', amount: 300 },
+      ],
+    });
+    assert.equal(res2.success, true);
+    assert.equal(store.computeBalances()['Bob'], 700);
+    assert.equal(store.computeBalances()['Charlie'], 300);
+
+    // Edit 3: change payer to Bob (Bob paid ₹1,500 total; User share ₹500, Bob share ₹700, Charlie share ₹300)
+    const bobObj = store.state.people.find((p) => p.name === 'Bob');
+    const res3 = store.editTransaction(txnId, {
+      amount: 1500,
+      payerId: bobObj.id,
+      userShare: 500,
+      allocations: [
+        { person: 'Bob', amount: 700 },
+        { person: 'Charlie', amount: 300 },
+      ],
+    });
+    assert.equal(res3.success, true);
+    // User owes Bob ₹500 (balance -₹500)
+    assert.equal(store.computeBalances()['Bob'], -500);
+    assert.equal(store.computeMonthlyAnalytics(2026, 10).totalSpent, 500);
+
+    // Edit 4: return to user paid, total ₹1,200 (₹400 each)
+    const res4 = store.editTransaction(txnId, {
+      amount: 1200,
+      payerId: 'user',
+      userShare: 400,
+      allocations: [
+        { person: 'Bob', amount: 400 },
+        { person: 'Charlie', amount: 400 },
+      ],
+    });
+    assert.equal(res4.success, true);
+    assert.equal(store.computeBalances()['Bob'], 400);
+    assert.equal(store.computeBalances()['Charlie'], 400);
+    assert.equal(store.computeMonthlyAnalytics(2026, 10).totalSpent, 400);
+  });
+
+  // 35. Shared Expense Editing: Conservation invariant enforcement & non-conserving rejection
+  test('35. Shared Expense Editing: Conservation invariant enforcement & non-conserving rejection', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Bob');
+
+    const addRes = store.addTransaction({
+      type: 'shared_expense',
+      amount: 1000,
+      payer: 'user',
+      userShare: 500,
+      allocations: [{ person: 'Bob', amount: 500 }],
+      description: 'Coffee',
+      category: 'Food',
+      date: '2026-11-04',
+    });
+    assert.equal(addRes.success, true);
+    const txnId = store.state.transactions[0].id;
+
+    // Case A: Allocations sum exceeds total bill (500 + 600 = 1,100 != 1,000)
+    const failA = store.editTransaction(txnId, {
+      amount: 1000,
+      userShare: 500,
+      allocations: [{ person: 'Bob', amount: 600 }],
+    });
+    assert.equal(failA.success, false);
+    assert.ok(failA.error.includes('conserve'));
+
+    // Case B: Allocations sum less than total bill (500 + 400 = 900 != 1,000)
+    const failB = store.editTransaction(txnId, {
+      amount: 1000,
+      userShare: 500,
+      allocations: [{ person: 'Bob', amount: 400 }],
+    });
+    assert.equal(failB.success, false);
+    assert.ok(failB.error.includes('conserve'));
+
+    // Case C: Changing total amount without updating allocations
+    const failC = store.editTransaction(txnId, {
+      amount: 1500,
+    });
+    assert.equal(failC.success, false);
+    assert.ok(failC.error.includes('conservation'));
+
+    // Case D: Zero allocation amount
+    const failD = store.editTransaction(txnId, {
+      amount: 1000,
+      userShare: 1000,
+      allocations: [{ person: 'Bob', amount: 0 }],
+    });
+    assert.equal(failD.success, false);
+    assert.ok(failD.error.includes('greater than ₹0'));
+
+    // Verify original transaction remains completely untouched
+    const evt = store.state.transactions[0];
+    assert.equal(evt.totalAmountPaise, 100000);
+    assert.equal(evt.userSharePaise, 50000);
+    assert.equal(evt.allocations[0].amountPaise, 50000);
+  });
+
+  // 36. Shared Expense Editing: Chronological repayment safeguard - rejection when edit creates conflict
+  test('36. Shared Expense Editing: Chronological repayment safeguard - rejection when edit creates conflict', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Bob');
+    const bobObj = store.state.people.find((p) => p.name === 'Bob');
+
+    // 2026-11-01: Shared expense where user pays ₹1,000 (User ₹500, Bob ₹500). Bob owes user ₹500.
+    const expenseRes = store.addTransaction({
+      type: 'shared_expense',
+      amount: 1000,
+      payer: 'user',
+      userShare: 500,
+      allocations: [{ person: 'Bob', amount: 500 }],
+      description: 'Shared Groceries',
+      category: 'Food',
+      date: '2026-11-01',
+    });
+    assert.equal(expenseRes.success, true);
+    const expenseId = store.state.transactions[0].id;
+    assert.equal(store.computeBalances()['Bob'], 500);
+
+    // 2026-11-02: Bob repays user ₹500 in full
+    const repayRes = store.addTransaction({
+      type: 'repayment',
+      person: 'Bob',
+      personId: bobObj.id,
+      amount: 500,
+      date: '2026-11-02',
+      direction: 'INFLOW',
+    });
+    assert.equal(repayRes.success, true);
+    // Bob balance is now ₹0
+    assert.equal(store.computeBalances()['Bob'], 0);
+
+    // 2026-11-03: User attempts to edit the 2026-11-01 shared expense to reduce Bob's share from ₹500 to ₹300
+    // (User share increases to ₹700).
+    // This creates a chronological conflict: Bob repaid ₹500 on 2026-11-02, but would only owe ₹300!
+    const editRes = store.editTransaction(expenseId, {
+      amount: 1000,
+      userShare: 700,
+      allocations: [{ person: 'Bob', amount: 300 }],
+    });
+
+    assert.equal(editRes.success, false);
+    assert.ok(editRes.error.includes('chronological repayment conflict'));
+  });
+
+  // 37. Shared Expense Editing: Original state and balances remain untouched after a rejected edit
+  test('37. Shared Expense Editing: Original state and balances remain untouched after a rejected edit', () => {
+    const storage = new MemoryStorage();
+    const store = new StoreCore({ storage });
+
+    store.addPerson('Bob');
+    const bobObj = store.state.people.find((p) => p.name === 'Bob');
+
+    const expenseRes = store.addTransaction({
+      type: 'shared_expense',
+      amount: 1000,
+      payer: 'user',
+      userShare: 500,
+      allocations: [{ person: 'Bob', amount: 500 }],
+      description: 'Dinner',
+      category: 'Food',
+      date: '2026-11-01',
+    });
+    assert.equal(expenseRes.success, true);
+    const expenseId = store.state.transactions[0].id;
+
+    store.addTransaction({
+      type: 'repayment',
+      person: 'Bob',
+      personId: bobObj.id,
+      amount: 500,
+      date: '2026-11-02',
+      direction: 'INFLOW',
+    });
+    assert.equal(store.computeBalances()['Bob'], 0);
+    assert.equal(store.computeMonthlyAnalytics(2026, 10).totalSpent, 500);
+
+    // Attempt invalid edit
+    const failedEdit = store.editTransaction(expenseId, {
+      amount: 1000,
+      userShare: 700,
+      allocations: [{ person: 'Bob', amount: 300 }],
+    });
+    assert.equal(failedEdit.success, false);
+
+    // Verify all aspects of store state remain pristine
+    assert.equal(store.state.transactions.length, 2);
+    const originalExpense = store.state.transactions.find((t) => t.id === expenseId);
+    assert.equal(originalExpense.totalAmountPaise, 100000);
+    assert.equal(originalExpense.userSharePaise, 50000);
+    assert.equal(originalExpense.allocations[0].amountPaise, 50000);
+
+    // Balances and monthly analytics completely unaltered
+    assert.equal(store.computeBalances()['Bob'], 0);
+    assert.equal(store.computeMonthlyAnalytics(2026, 10).totalSpent, 500);
   });
 });

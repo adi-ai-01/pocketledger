@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react';
 import { X, User, Users, ArrowUpRight, ArrowDownLeft, CheckCircle2 } from 'lucide-react';
+import {
+  isEditMode,
+  resolveSheetAction,
+  normalizeEditTxn,
+  resolveSheetTitle,
+} from '../domain/transaction-routing.js';
 import ActionSelector, { TRANSACTION_ACTIONS } from './transaction/ActionSelector.jsx';
 import PersonalExpenseForm from './transaction/PersonalExpenseForm.jsx';
 import SharedExpenseForm from './transaction/SharedExpenseForm.jsx';
@@ -18,48 +24,21 @@ export default function TransactionSheet({
   onClose,
   onAddPendingAlarm,
 }) {
-  const isEdit = !!editTxn;
+  const isEdit = isEditMode(editTxn);
+  const normalizedEditTxn = isEdit ? normalizeEditTxn(editTxn, people) : null;
+  const prefillData = !isEdit && editTxn ? editTxn : null;
 
-  // Determine starting view:
-  // If editing: detect action from transaction fields
-  // If creating: if type is 'settle', go straight to repayment; if other legacy types, show action selector or direct view
-  const determineInitialAction = () => {
-    if (editTxn) {
-      if (editTxn.action) return editTxn.action;
-      if (editTxn.type === 'split' || editTxn.splits?.length > 0) return 'shared_expense';
-      if (editTxn.type === 'settle') return 'repayment';
-      if (editTxn.type === 'take') return 'borrow';
-      if (editTxn.type === 'give') {
-        return editTxn.person ? 'lend' : 'personal_expense';
-      }
-      return 'personal_expense';
-    }
-
-    if (type === 'settle' || type === 'repayment') return 'repayment';
-    if (type === 'personal_expense') return 'personal_expense';
-    if (type === 'shared_expense' || type === 'split') return 'shared_expense';
-    if (type === 'lend') return 'lend';
-    if (type === 'borrow') return 'borrow';
-
-    // Default to selector for clear entry point
-    return null;
-  };
-
-  const [currentAction, setCurrentAction] = useState(determineInitialAction);
+  const [currentAction, setCurrentAction] = useState(() => resolveSheetAction(type, editTxn));
 
   // Sync if type or editTxn changes
   useEffect(() => {
-    setCurrentAction(determineInitialAction());
+    setCurrentAction(resolveSheetAction(type, editTxn));
   }, [type, editTxn]);
 
   const actionMeta = TRANSACTION_ACTIONS.find((a) => a.id === currentAction);
   const ActionIcon = actionMeta?.icon;
 
-  const getTitle = () => {
-    if (isEdit) return `Edit ${actionMeta?.title || 'Transaction'}`;
-    if (!currentAction) return 'New Transaction';
-    return actionMeta?.title || 'New Transaction';
-  };
+  const title = resolveSheetTitle(currentAction, isEdit);
 
   return (
     <div className="overlay" onClick={onClose}>
@@ -73,7 +52,7 @@ export default function TransactionSheet({
               <ActionIcon size={20} className="text-accent flex-shrink-0" />
             )}
             <h2 className="text-lg font-semibold text-text-primary">
-              {getTitle()}
+              {title}
             </h2>
           </div>
           <button
@@ -93,7 +72,8 @@ export default function TransactionSheet({
         {/* View 2: Personal Expense Form */}
         {currentAction === 'personal_expense' && (
           <PersonalExpenseForm
-            editTxn={editTxn}
+            editTxn={normalizedEditTxn}
+            initialAmount={prefillData?.amount}
             people={people}
             categories={categories}
             settings={settings}
@@ -105,10 +85,14 @@ export default function TransactionSheet({
         {/* View 3: Shared Expense Form */}
         {currentAction === 'shared_expense' && (
           <SharedExpenseForm
-            editTxn={editTxn}
+            editTxn={normalizedEditTxn}
+            initialPerson={prefillData?.person}
+            initialAmount={prefillData?.amount}
             people={people}
+            balances={balances}
             categories={categories}
             settings={settings}
+            store={store}
             onSave={onSave}
             onBack={isEdit ? null : () => setCurrentAction(null)}
           />
@@ -118,8 +102,11 @@ export default function TransactionSheet({
         {(currentAction === 'lend' || currentAction === 'borrow') && (
           <LendBorrowForm
             initialDirection={currentAction}
-            editTxn={editTxn}
+            initialPerson={prefillData?.person}
+            initialAmount={prefillData?.amount}
+            editTxn={normalizedEditTxn}
             people={people}
+            balances={balances}
             categories={categories}
             settings={settings}
             store={store}
@@ -131,16 +118,16 @@ export default function TransactionSheet({
         {/* View 5: Repayment Form */}
         {currentAction === 'repayment' && (
           <RepaymentForm
-            initialPerson={editTxn?.person || (type === 'settle' ? editTxn?.person : '')}
-            initialAmount={editTxn?.amount}
-            editTxn={editTxn}
+            initialPerson={normalizedEditTxn?.person || prefillData?.person || ''}
+            initialAmount={normalizedEditTxn?.amount ?? prefillData?.amount ?? ''}
+            editTxn={normalizedEditTxn}
             people={people}
             balances={balances}
             categories={categories}
             settings={settings}
             store={store}
             onSave={onSave}
-            onBack={isEdit || type === 'settle' ? null : () => setCurrentAction(null)}
+            onBack={isEdit || type === 'settle' || type === 'repayment' ? null : () => setCurrentAction(null)}
           />
         )}
       </div>
